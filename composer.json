@@ -1,0 +1,40 @@
+{
+    "name": "mulertech/alerting-bundle",
+    "description": "Symfony bundle reporting whatever malfunctions in an application, over channels tried in order",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": ["php", "symfony", "bundle", "alerting", "monitoring", "notification", "error"],
+    "authors": [
+        {
+            "name": "Sébastien Muler",
+            "email": "sebastien.muler@mulertech.net"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "symfony/config": "^7.0 || ^8.0",
+        "symfony/dependency-injection": "^7.0 || ^8.0",
+        "symfony/http-kernel": "^7.0 || ^8.0"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "mulertech/docker-dev": "^3.2",
+        "phpstan/phpstan": "^2.0",
+        "phpunit/phpunit": "^12.0",
+        "roave/security-advisories": "dev-latest"
+    },
+    "autoload": {
+        "psr-4": {
+            "MulerTech\\AlertingBundle\\": "./src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MulerTech\\AlertingBundle\\Tests\\": "./tests"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}
