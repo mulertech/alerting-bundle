@@ -13,14 +13,19 @@ use Psr\Clock\ClockInterface;
  * Decides whether an alert goes out: once per fingerprint and per window, and no more than a cap
  * per window across every fingerprint.
  *
- * The state lives in the declared pool and nowhere else, so that the web processes and the worker
- * share it when the pool is shared, and that nothing carries over in memory from one request or
- * message to the next.
+ * The state lives in the declared pool, so that the web processes and the worker share it when the
+ * pool is shared.
  *
  * Reading then writing an item is not atomic: alerts raised at the same instant by concurrent
  * processes may each go out. The cap bounds that case.
+ *
+ * When the pool fails, alerts go out without deduplication, under a fallback cap counted in the
+ * memory of the process. Without it, a fault repeated on every request would send a mail per
+ * request and get the application's mail account blocked, and the mails to its users with it.
+ * That count is the one state kept from one request to the next, on purpose: it bounds the
+ * process, not a request.
  */
-final readonly class Throttle
+final class Throttle
 {
     private const string KEY_PREFIX = 'mulertech_alerting.';
 
@@ -32,11 +37,15 @@ final readonly class Throttle
      */
     private const int TALLY_RETENTION = 7 * 86400;
 
+    private int $fallbackUntil = 0;
+
+    private int $fallbackCount = 0;
+
     public function __construct(
-        private CacheItemPoolInterface $pool,
-        private ClockInterface $clock,
-        private int $window,
-        private int $cap,
+        private readonly CacheItemPoolInterface $pool,
+        private readonly ClockInterface $clock,
+        private readonly int $window,
+        private readonly int $cap,
     ) {
     }
 
@@ -45,12 +54,30 @@ final readonly class Throttle
         try {
             return $this->decide($alert);
         } catch (\Throwable $failure) {
-            return new Admission(Verdict::Send, incidents: [\sprintf(
-                'The cache pool of the alerting failed (%s: %s): this alert went out with no deduplication and no cap.',
-                $failure::class,
-                $failure->getMessage(),
-            )]);
+            return $this->admitWithoutPool($failure);
         }
+    }
+
+    private function admitWithoutPool(\Throwable $failure): Admission
+    {
+        $now = $this->clock->now()->getTimestamp();
+
+        if ($now >= $this->fallbackUntil) {
+            $this->fallbackUntil = $now + $this->window;
+            $this->fallbackCount = 0;
+        }
+
+        $incidents = [\sprintf(
+            'The cache pool of the alerting failed (%s: %s): alerts go out with no deduplication, under a cap counted by each process alone.',
+            $failure::class,
+            $failure->getMessage(),
+        )];
+
+        if ($this->fallbackCount > $this->cap) {
+            return new Admission(Verdict::OverCap, incidents: $incidents);
+        }
+
+        return new Admission($this->fallbackCount++ === $this->cap ? Verdict::CapReached : Verdict::Send, incidents: $incidents);
     }
 
     private function decide(Alert $alert): Admission

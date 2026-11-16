@@ -133,16 +133,41 @@ final class ThrottleTest extends TestCase
 
     public function testAPoolThatFailsLetsTheAlertOutAndSaysWhy(): void
     {
-        $pool = $this->createStub(CacheItemPoolInterface::class);
-        $pool->method('getItem')->willThrowException(new \RuntimeException('Disk full'));
-
-        $admission = new Throttle($pool, $this->clock, self::WINDOW, 20)->admit($this->alert('a'));
+        $admission = new Throttle($this->failingPool(), $this->clock, self::WINDOW, 20)->admit($this->alert('a'));
 
         self::assertSame(Verdict::Send, $admission->verdict);
         self::assertSame(
-            ['The cache pool of the alerting failed (RuntimeException: Disk full): this alert went out with no deduplication and no cap.'],
+            ['The cache pool of the alerting failed (RuntimeException: Disk full): alerts go out with no deduplication, under a cap counted by each process alone.'],
             $admission->incidents,
         );
+    }
+
+    public function testAPoolThatFailsFallsBackToACapCountedByTheProcess(): void
+    {
+        $throttle = new Throttle($this->failingPool(), $this->clock, self::WINDOW, 2);
+
+        $verdicts = array_map(fn (string $fault) => $throttle->admit($this->alert($fault))->verdict, ['a', 'a', 'b', 'c']);
+
+        self::assertSame([Verdict::Send, Verdict::Send, Verdict::CapReached, Verdict::OverCap], $verdicts);
+    }
+
+    public function testTheFallbackCapStartsAgainWithTheNextWindow(): void
+    {
+        $throttle = new Throttle($this->failingPool(), $this->clock, self::WINDOW, 1);
+        $throttle->admit($this->alert('a'));
+        $throttle->admit($this->alert('b'));
+        $throttle->admit($this->alert('c'));
+        $this->clock->sleep(self::WINDOW);
+
+        self::assertSame(Verdict::Send, $throttle->admit($this->alert('d'))->verdict);
+    }
+
+    public function testEveryVerdictOfTheFallbackNamesThePoolFailure(): void
+    {
+        $throttle = new Throttle($this->failingPool(), $this->clock, self::WINDOW, 0);
+
+        self::assertCount(1, $throttle->admit($this->alert('a'))->incidents);
+        self::assertCount(1, $throttle->admit($this->alert('b'))->incidents);
     }
 
     public function testAPoolThatRefusesToSaveLetsTheAlertOutAndSaysWhy(): void
@@ -156,6 +181,14 @@ final class ThrottleTest extends TestCase
         self::assertSame(Verdict::Send, $admission->verdict);
         self::assertCount(1, $admission->incidents);
         self::assertStringContainsString('The pool refused to save "mulertech_alerting.cap".', $admission->incidents[0]);
+    }
+
+    private function failingPool(): CacheItemPoolInterface
+    {
+        $pool = $this->createStub(CacheItemPoolInterface::class);
+        $pool->method('getItem')->willThrowException(new \RuntimeException('Disk full'));
+
+        return $pool;
     }
 
     private function throttle(int $cap = 20): Throttle

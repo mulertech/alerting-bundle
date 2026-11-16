@@ -77,16 +77,17 @@ final class Alerter
                 $admission->suppressed,
                 $admission->incidents,
             )),
-            Verdict::CapReached => $this->reachCap($alert),
-            Verdict::OverCap => $this->standardError->send($this->deliver($alert)->withIncident(
-                'Over the alert cap: written here only.',
-            )),
+            Verdict::CapReached => $this->reachCap($alert, $admission->incidents),
+            Verdict::OverCap => $this->standardError->send($this->overCap($alert, $admission->incidents)),
         };
     }
 
-    private function reachCap(Alert $alert): void
+    /**
+     * @param list<string> $incidents
+     */
+    private function reachCap(Alert $alert, array $incidents): void
     {
-        $this->channels->send($this->deliver(new Alert(
+        $this->channels->send(new Delivery($this->application, new Alert(
             Severity::Critical,
             'alerting',
             \sprintf(
@@ -95,9 +96,17 @@ final class Alerter
                 $this->window,
             ),
             ['cap'],
-        )));
+        ), $this->clock->now(), incidents: $incidents));
 
-        $this->standardError->send($this->deliver($alert)->withIncident('Over the alert cap: written here only.'));
+        $this->standardError->send($this->overCap($alert, $incidents));
+    }
+
+    /**
+     * @param list<string> $incidents
+     */
+    private function overCap(Alert $alert, array $incidents): Delivery
+    {
+        return new Delivery($this->application, $alert, $this->clock->now(), incidents: [...$incidents, 'Over the alert cap: written here only.']);
     }
 
     private function deliver(Alert $alert): Delivery

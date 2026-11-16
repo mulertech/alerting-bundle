@@ -13,6 +13,7 @@ use MulerTech\AlertingBundle\Tests\Double\RecordingChannel;
 use MulerTech\AlertingBundle\Tests\Double\StandardErrorFile;
 use MulerTech\AlertingBundle\Throttle\Throttle;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Clock\MockClock;
@@ -80,6 +81,36 @@ final class AlerterTest extends TestCase
         $lines = $this->standardError->lines();
         self::assertSame(['Failure b', 'Failure c'], array_column($lines, 'summary'));
         self::assertSame([['Over the alert cap: written here only.'], ['Over the alert cap: written here only.']], array_column($lines, 'incidents'));
+    }
+
+    public function testWithAFailingPoolTheCapNoticeAndTheAlertsHeldBackNameTheFailure(): void
+    {
+        $pool = $this->createStub(CacheItemPoolInterface::class);
+        $pool->method('getItem')->willThrowException(new \RuntimeException('Disk full'));
+        $channel = new RecordingChannel();
+        $alerter = new Alerter(
+            'shop-prod',
+            new Throttle($pool, $this->clock, self::WINDOW, 0),
+            new ChannelChain(['messaging' => $channel], $this->standardError->channel()),
+            $this->standardError->channel(),
+            $this->clock,
+            self::WINDOW,
+            0,
+        );
+
+        $alerter->alert($this->alert('a'));
+        $alerter->alert($this->alert('b'));
+
+        self::assertCount(1, $channel->deliveries);
+        self::assertSame('alerting', $channel->deliveries[0]->alert->source);
+        self::assertStringContainsString('Disk full', $channel->deliveries[0]->incidents[0]);
+        foreach ($this->standardError->lines() as $line) {
+            self::assertIsArray($line['incidents']);
+            self::assertCount(2, $line['incidents']);
+            self::assertIsString($line['incidents'][0]);
+            self::assertStringContainsString('Disk full', $line['incidents'][0]);
+        }
+        self::assertCount(2, $this->standardError->lines());
     }
 
     public function testAnAlertRaisedWhileSendingGoesToStandardErrorOnly(): void
