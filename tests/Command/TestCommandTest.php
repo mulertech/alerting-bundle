@@ -17,6 +17,7 @@ use MulerTech\AlertingBundle\Tests\Double\StandardErrorFile;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -43,12 +44,11 @@ final class TestCommandTest extends TestCase
     {
         $mail = new RecordingChannel();
 
-        $tester = $this->tester(['messaging' => new RefusingChannel('Database unreachable'), 'mail' => $mail], new StandardErrorFile());
+        [$tester, $failure] = $this->failing(['messaging' => new RefusingChannel('Database unreachable'), 'mail' => $mail], new StandardErrorFile());
 
-        self::assertSame(Command::FAILURE, $tester->getStatusCode());
         self::assertCount(1, $mail->deliveries, 'A refusal does not stop the test of the next channel.');
         self::assertStringContainsString('✘ messaging: RuntimeException: Database unreachable', $tester->getDisplay());
-        self::assertStringContainsString('Refused the test alert: messaging.', $tester->getDisplay());
+        self::assertSame('The test alert was refused. [messaging] RuntimeException: Database unreachable', $failure->getMessage());
     }
 
     public function testStandardErrorIsTriedToo(): void
@@ -80,11 +80,10 @@ final class TestCommandTest extends TestCase
         $kit = new AlertingKit();
         $probe = new PoolProbeSender($kit->ledger, $this->bus(null), $kit->clock, 'async', 5);
 
-        $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), $probe);
+        [$tester, $failure] = $this->failing(['mail' => new RecordingChannel()], new StandardErrorFile(), $probe);
 
-        self::assertSame(Command::FAILURE, $tester->getStatusCode());
         self::assertStringContainsString('✘ pool probe: no answer from the worker of "async" within 5 seconds.', $tester->getDisplay());
-        self::assertStringContainsString('Refused the test alert: pool probe.', $tester->getDisplay());
+        self::assertStringStartsWith('The test alert was refused. [pool probe] no answer from the worker of "async" within 5 seconds. Either the worker is stopped', $failure->getMessage());
     }
 
     public function testChosenChannelsAloneReceiveATestAlert(): void
@@ -108,11 +107,11 @@ final class TestCommandTest extends TestCase
     {
         $mail = new RecordingChannel();
 
-        $tester = $this->tester(['messaging' => new RecordingChannel(), 'mail' => $mail], new StandardErrorFile(), input: ['--channel' => ['mail', 'sms']]);
+        [, $failure] = $this->failing(['messaging' => new RecordingChannel(), 'mail' => $mail], new StandardErrorFile(), input: ['--channel' => ['mail', 'sms']]);
 
-        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertInstanceOf(InvalidOptionException::class, $failure);
+        self::assertSame('Unknown channel: sms. Declared: messaging, mail.', $failure->getMessage());
         self::assertCount(0, $mail->deliveries);
-        self::assertStringContainsString('Unknown channel: sms. Declared: messaging, mail.', $tester->getDisplay());
     }
 
     public function testTheProbeAloneSendsNoTestAlert(): void
@@ -142,29 +141,54 @@ final class TestCommandTest extends TestCase
         $channels = ['mail' => static fn (): ChannelInterface => throw new \RuntimeException('Environment variable not found: "MAILER_DSN_FILE".')];
 
         $tester = new CommandTester(new TestCommand('shop-prod', $channels, new StandardErrorFile()->channel(), new MockClock(), $probe));
-        $tester->execute(['--probe-only' => true]);
 
-        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        try {
+            $tester->execute(['--probe-only' => true]);
+            self::fail('A channel that cannot be built passed the deployment check.');
+        } catch (\RuntimeException $failure) {
+            self::assertSame('The deployment check failed. [mail] cannot be built: RuntimeException: Environment variable not found: "MAILER_DSN_FILE".', $failure->getMessage());
+        }
+
         self::assertStringContainsString('✘ mail cannot be built: RuntimeException: Environment variable not found: "MAILER_DSN_FILE".', $tester->getDisplay());
-        self::assertStringContainsString('Failed: mail.', $tester->getDisplay());
     }
 
     public function testTheProbeAloneNeedsTheWorkerWatched(): void
     {
-        $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), input: ['--probe-only' => true]);
+        [, $failure] = $this->failing(['mail' => new RecordingChannel()], new StandardErrorFile(), input: ['--probe-only' => true]);
 
-        self::assertSame(Command::INVALID, $tester->getStatusCode());
-        self::assertStringContainsString('--probe-only needs the worker to be watched', $tester->getDisplay());
+        self::assertInstanceOf(InvalidOptionException::class, $failure);
+        self::assertSame('--probe-only needs the worker to be watched: declare mulertech_alerting.absence.worker.', $failure->getMessage());
     }
 
     public function testTheProbeAloneAndChosenChannelsExcludeEachOther(): void
     {
         $mail = new RecordingChannel();
 
-        $tester = $this->tester(['mail' => $mail], new StandardErrorFile(), input: ['--probe-only' => true, '--channel' => ['mail']]);
+        [, $failure] = $this->failing(['mail' => $mail], new StandardErrorFile(), input: ['--probe-only' => true, '--channel' => ['mail']]);
 
-        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertInstanceOf(InvalidOptionException::class, $failure);
         self::assertCount(0, $mail->deliveries);
+    }
+
+    /**
+     * Runs the command expected to fail, and returns what it printed with what it threw.
+     *
+     * @param array<string, ChannelInterface> $channels
+     * @param array<string, mixed>            $input
+     *
+     * @return array{CommandTester, \Throwable}
+     */
+    private function failing(array $channels, StandardErrorFile $standardError, ?PoolProbeSender $probe = null, array $input = []): array
+    {
+        $tester = new CommandTester(new TestCommand('shop-prod', Channels::built($channels), $standardError->channel(), new MockClock(), $probe));
+
+        try {
+            $tester->execute($input);
+        } catch (\Throwable $failure) {
+            return [$tester, $failure];
+        }
+
+        self::fail('The command succeeded: '.$tester->getDisplay());
     }
 
     private function bus(?PoolProbeHandler $worker): MessageBusInterface

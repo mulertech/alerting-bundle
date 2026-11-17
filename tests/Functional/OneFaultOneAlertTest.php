@@ -161,6 +161,21 @@ final class OneFaultOneAlertTest extends TestCase
         self::assertSame(PoolProbeHandler::ANSWERED, $ledger->read(PoolProbeHandler::subject($probe->token)), 'The web reads the answer the worker wrote.');
     }
 
+    /**
+     * A deployment check that fails is one alert, and that alert carries what failed rather than
+     * an exit code.
+     */
+    public function testAFailedDeploymentCheckIsOneAlertCarryingItsCause(): void
+    {
+        $web = $this->kernel(watchWorker: true, pool: $this->directory());
+
+        self::assertSame(1, $this->console($web, ['command' => 'mulertech:alerting:test', '--probe-only' => true]));
+
+        $alert = $this->only($web)->alert;
+        self::assertSame('console', $alert->source);
+        self::assertStringContainsString('The deployment check failed. [pool probe] no answer from the worker of "async" within 1 second.', $alert->summary);
+    }
+
     public function testAWorkerWithAPoolOfItsOwnSaysSo(): void
     {
         $web = $this->kernel(watchWorker: true, pool: $this->directory());

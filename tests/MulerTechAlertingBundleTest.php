@@ -6,6 +6,7 @@ namespace MulerTech\AlertingBundle\Tests;
 
 use MulerTech\AlertingBundle\Alerter;
 use MulerTech\AlertingBundle\MulerTechAlertingBundle;
+use MulerTech\AlertingBundle\Probe\PoolProbeSender;
 use MulerTech\AlertingBundle\Source\AlertingHandler;
 use MulerTech\AlertingBundle\Source\HttpExceptionSubscriber;
 use MulerTech\AlertingBundle\Tests\Double\ReadReceiptChannel;
@@ -153,6 +154,21 @@ final class MulerTechAlertingBundleTest extends TestCase
             ['worker heartbeat of "async"', 'scheduled task "app:quote-reminders"', 'failure transport "failed"', 'unread alerts of "messaging"'],
             $this->checked($tester->getDisplay()),
         );
+    }
+
+    /**
+     * A busy worker answers the probe once its message in hand is done: left out, the wait is the
+     * silence, which the configuration bounds by the longest message.
+     */
+    public function testTheProbeWaitsAsLongAsTheSilenceUnlessToldOtherwise(): void
+    {
+        $byDefault = $this->boot($this->config(['absence' => ['worker' => ['transport' => 'async', 'silence' => 300]]]))->get('mulertech_alerting.probe_sender');
+        $declared = $this->boot($this->config(['absence' => ['worker' => ['transport' => 'async', 'silence' => 300, 'probe_wait' => 45]]]))->get('mulertech_alerting.probe_sender');
+
+        self::assertInstanceOf(PoolProbeSender::class, $byDefault);
+        self::assertInstanceOf(PoolProbeSender::class, $declared);
+        self::assertSame(300, $byDefault->wait);
+        self::assertSame(45, $declared->wait);
     }
 
     public function testWithoutAbsenceSignalThereIsNoCheck(): void

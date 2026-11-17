@@ -13,6 +13,7 @@ use MulerTech\AlertingBundle\Probe\PoolProbeSender;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -59,44 +60,39 @@ final class TestCommand extends Command
         $probeOnly = (bool) $input->getOption('probe-only');
 
         if ($probeOnly && [] !== $chosen) {
-            $io->error('--probe-only sends no test alert, and --channel chooses which channels receive one: give one option or the other.');
-
-            return Command::INVALID;
+            throw new InvalidOptionException('--probe-only sends no test alert, and --channel chooses which channels receive one: give one option or the other.');
         }
 
         if ($probeOnly && null === $this->probe) {
-            $io->error('--probe-only needs the worker to be watched: declare mulertech_alerting.absence.worker.');
-
-            return Command::INVALID;
+            throw new InvalidOptionException('--probe-only needs the worker to be watched: declare mulertech_alerting.absence.worker.');
         }
 
         $unknown = array_diff($chosen, array_keys($this->channels));
 
         if ([] !== $unknown) {
-            $io->error(\sprintf('Unknown channel: %s. Declared: %s.', implode(', ', $unknown), implode(', ', array_keys($this->channels))));
-
-            return Command::INVALID;
+            throw new InvalidOptionException(\sprintf('Unknown channel: %s. Declared: %s.', implode(', ', $unknown), implode(', ', array_keys($this->channels))));
         }
 
-        $refused = $probeOnly ? $this->buildChannels($io) : $this->sendTestAlerts($io, $chosen);
+        $failures = $probeOnly ? $this->buildChannels($io) : $this->sendTestAlerts($io, $chosen);
 
         if (null !== $this->probe && [] === $chosen) {
             if ($this->probe->probe()) {
                 $io->writeln(\sprintf('<info>✔</info> the worker of "%s" shares the cache pool of the alerting', $this->probe->transport));
             } else {
-                $refused[] = 'pool probe';
-                $io->writeln(\sprintf(
-                    '<error>✘</error> pool probe: no answer from the worker of "%s" within %d seconds. Either the worker is stopped, or it does not share the cache pool of the alerting, and then it sends an alert saying so once it handles the probe.',
+                $failures['pool probe'] = \sprintf(
+                    'no answer from the worker of "%s" within %d %s. Either the worker is stopped, or it does not share the cache pool of the alerting, and then it sends an alert saying so once it handles the probe.',
                     $this->probe->transport,
                     $this->probe->wait,
-                ));
+                    1 === $this->probe->wait ? 'second' : 'seconds',
+                );
+                $io->writeln(\sprintf('<error>✘</error> pool probe: %s', $failures['pool probe']));
             }
         }
 
-        if ([] !== $refused) {
-            $io->error(\sprintf($probeOnly ? 'Failed: %s.' : 'Refused the test alert: %s.', implode(', ', $refused)));
-
-            return Command::FAILURE;
+        // Thrown rather than returned: the console source reports a bare exit code as a symptom,
+        // and an exception with its message, which is the cause.
+        if ([] !== $failures) {
+            throw new \RuntimeException(\sprintf('%s %s', $probeOnly ? 'The deployment check failed.' : 'The test alert was refused.', implode(' ', array_map(static fn (string $name, string $reason): string => \sprintf('[%s] %s', $name, $reason), array_keys($failures), $failures))));
         }
 
         $io->success($probeOnly ? 'Every channel is built, and the worker shares the cache pool of the alerting.' : 'Every channel tried accepted the test alert. Check that each one arrived.');
@@ -109,11 +105,11 @@ final class TestCommand extends Command
      *
      * @param list<string> $chosen
      *
-     * @return list<string> the channels that refused
+     * @return array<string, string> why each channel refused, by its name
      */
     private function sendTestAlerts(SymfonyStyle $io, array $chosen): array
     {
-        $refused = [];
+        $failures = [];
 
         foreach ($this->channels as $name => $channel) {
             if ([] !== $chosen && !\in_array($name, $chosen, true)) {
@@ -124,8 +120,8 @@ final class TestCommand extends Command
                 $channel()->send($this->delivery($name));
                 $io->writeln(\sprintf('<info>✔</info> %s', $name));
             } catch (\Throwable $failure) {
-                $refused[] = $name;
-                $io->writeln(\sprintf('<error>✘</error> %s: %s: %s', $name, $failure::class, $failure->getMessage()));
+                $failures[$name] = \sprintf('%s: %s', $failure::class, $failure->getMessage());
+                $io->writeln(\sprintf('<error>✘</error> %s: %s', $name, $failures[$name]));
             }
         }
 
@@ -134,27 +130,27 @@ final class TestCommand extends Command
             $io->writeln('<info>✔</info> standard error, written to the error output of this process');
         }
 
-        return $refused;
+        return $failures;
     }
 
     /**
-     * @return list<string> the channels that could not be built
+     * @return array<string, string> why each channel cannot be built, by its name
      */
     private function buildChannels(SymfonyStyle $io): array
     {
-        $refused = [];
+        $failures = [];
 
         foreach ($this->channels as $name => $channel) {
             try {
                 $channel();
                 $io->writeln(\sprintf('<info>✔</info> %s is built', $name));
             } catch (\Throwable $failure) {
-                $refused[] = $name;
-                $io->writeln(\sprintf('<error>✘</error> %s cannot be built: %s: %s', $name, $failure::class, $failure->getMessage()));
+                $failures[$name] = \sprintf('cannot be built: %s: %s', $failure::class, $failure->getMessage());
+                $io->writeln(\sprintf('<error>✘</error> %s %s', $name, $failures[$name]));
             }
         }
 
-        return $refused;
+        return $failures;
     }
 
     private function delivery(string $channel): Delivery

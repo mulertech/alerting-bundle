@@ -70,7 +70,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
  *     dependencies: array<string, string>,
  *     absence: array{
  *         interval: int,
- *         worker?: array{transport: string, silence: int, probe_wait: int},
+ *         worker?: array{transport: string, silence: int, probe_wait: int|null},
  *         schedule: array<string, int>,
  *         failure_queue?: array{transport: string, threshold: int},
  *         unread?: array{delay: int},
@@ -152,7 +152,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
                             ->children()
                                 ->scalarNode('transport')->isRequired()->cannotBeEmpty()->end()
                                 ->integerNode('silence')->info('Seconds without a worker on the transport; longer than the longest message.')->isRequired()->min(1)->end()
-                                ->integerNode('probe_wait')->info('Seconds mulertech:alerting:test waits for the worker to answer its probe.')->min(1)->defaultValue(30)->end()
+                                ->integerNode('probe_wait')->info('Seconds mulertech:alerting:test waits for the worker to answer its probe; the silence when left out, since a busy worker answers once its message in hand is done.')->min(1)->defaultNull()->end()
                             ->end()
                         ->end()
                         ->arrayNode('schedule')
@@ -407,7 +407,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
                 ->tag('messenger.message_handler', ['handles' => PoolProbe::class]);
 
             $services->set(self::PREFIX.'probe_sender', PoolProbeSender::class)
-                ->args([service(self::PREFIX.'ledger'), service('messenger.default_bus'), service('clock'), $worker['transport'], $worker['probe_wait']]);
+                ->args([service(self::PREFIX.'ledger'), service('messenger.default_bus'), service('clock'), $worker['transport'], $worker['probe_wait'] ?? $worker['silence']]);
         }
 
         if ([] !== $absence['schedule']) {

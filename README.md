@@ -177,6 +177,7 @@ mulertech_alerting:
         worker:
             transport: async
             silence: 300         # longer than the longest message the worker handles
+            probe_wait: 300      # seconds the probe waits for the worker; the silence by default
         schedule:
             app:quote-reminders: 90000         # command name or message class => seconds
         failure_queue:
@@ -210,6 +211,11 @@ unread.
 Run the probe last, once the worker of the new release consumes: a worker that has not started
 yet answers nothing, the command fails, and a deployment that stops at the first error stops there
 with nothing broken.
+
+A worker that has started may still be busy: it answers once its message in hand is done, a
+scheduled task included. The probe therefore waits as long as `silence`, the longest message the
+worker handles, unless `probe_wait` says otherwise; a probe that succeeds returns as soon as the
+worker answers, and only a failure waits the whole time.
 
 The absences are checked after web responses, at most once per `interval`. With no visit, nothing
 is checked: schedule `mulertech:alerting:check` outside the application (a systemd timer, a cron)
