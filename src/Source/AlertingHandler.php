@@ -17,13 +17,19 @@ use MulerTech\AlertingBundle\Alerter;
  *
  * The fingerprint of a record without an exception is its channel and its message template, before
  * the placeholders are filled in: "Import of {file} failed" is one fault, whatever the file.
+ *
+ * The logger is built with the kernel, a build included: the alerter, its pool and its channels are
+ * built at the first record to report, never with the handler.
  */
 final class AlertingHandler extends AbstractProcessingHandler
 {
     public const string OWNER = 'log';
 
+    /**
+     * @param \Closure(): Alerter $alerter
+     */
     public function __construct(
-        private readonly Alerter $alerter,
+        private readonly \Closure $alerter,
         private readonly ThrowableClaims $claims,
         private readonly ThrowableAlertFactory $factory,
     ) {
@@ -38,7 +44,7 @@ final class AlertingHandler extends AbstractProcessingHandler
         $summary = self::interpolate($record->message, $record->context);
 
         if (!$exception instanceof \Throwable) {
-            $this->alerter->alert(new Alert($severity, 'log', $summary, [$record->channel, $record->message], $context));
+            $this->report(new Alert($severity, 'log', $summary, [$record->channel, $record->message], $context));
 
             return;
         }
@@ -49,7 +55,24 @@ final class AlertingHandler extends AbstractProcessingHandler
             return;
         }
 
-        $this->alerter->alert($this->factory->create('log', $severity, $summary, $exception, $context, [$record->channel]));
+        $this->report($this->factory->create('log', $severity, $summary, $exception, $context, [$record->channel]));
+    }
+
+    /**
+     * The alerter never throws once built; building it may, when its pool cannot be reached. A log
+     * call of the application must not fail for it, and the alert must not vanish either.
+     */
+    private function report(Alert $alert): void
+    {
+        try {
+            $alerter = ($this->alerter)();
+        } catch (\Throwable $failure) {
+            error_log(\sprintf('mulertech_alerting could not be built, so this alert reaches the error log only: %s. Cause: %s: %s', $alert->summary, $failure::class, $failure->getMessage()));
+
+            return;
+        }
+
+        $alerter->alert($alert);
     }
 
     /**

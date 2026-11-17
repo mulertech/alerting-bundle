@@ -53,6 +53,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service_closure;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_iterator;
 
 /**
@@ -286,7 +287,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
                 default => throw new InvalidConfigurationException(\sprintf('The channel "%s" of mulertech_alerting has the type "%s". Accepted types: %s.', $name, $channel['type'], implode(', ', self::CHANNEL_TYPES))),
             };
 
-            $references[$name] = service($id);
+            $references[$name] = service_closure($id);
         }
 
         return $references;
@@ -369,7 +370,10 @@ final class MulerTechAlertingBundle extends AbstractBundle
             ->tag('kernel.event_subscriber')
             ->tag('kernel.reset', ['method' => 'reset']);
 
-        $services->set(self::PREFIX.'monolog_handler', AlertingHandler::class)->args($sourceArgs);
+        // Built with the logger, so with the kernel, a build included: the alerter waits for the first
+        // record to report.
+        $services->set(self::PREFIX.'monolog_handler', AlertingHandler::class)
+            ->args([service_closure(self::PREFIX.'alerter'), service(self::PREFIX.'claims'), service(self::PREFIX.'alert_factory')]);
 
         if (class_exists(Worker::class)) {
             $services->set(self::PREFIX.'source.messenger', MessengerFailureSubscriber::class)

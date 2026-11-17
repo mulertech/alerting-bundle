@@ -48,6 +48,25 @@ final class AlertingKernel extends Kernel
         $this->directory = sys_get_temp_dir().'/mulertech_alerting/'.bin2hex(random_bytes(8));
     }
 
+    /**
+     * What the standard error channel wrote, one JSON line per alert.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function standardError(): array
+    {
+        $lines = [];
+
+        foreach (file($this->directory.'/stderr', \FILE_IGNORE_NEW_LINES | \FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode($line, true, flags: \JSON_THROW_ON_ERROR);
+            \assert(\is_array($decoded));
+            /* @var array<string, mixed> $decoded */
+            $lines[] = $decoded;
+        }
+
+        return $lines;
+    }
+
     public function removeDirectory(): void
     {
         new Filesystem()->remove($this->directory);

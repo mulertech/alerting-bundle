@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Tests;
 
+use MulerTech\AlertingBundle\Tests\Double\Channels;
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Alerter;
@@ -91,7 +92,7 @@ final class AlerterTest extends TestCase
         $alerter = new Alerter(
             'shop-prod',
             new Throttle($pool, $this->clock, self::WINDOW, 0),
-            new ChannelChain(['messaging' => $channel], $this->standardError->channel()),
+            new ChannelChain(Channels::built(['messaging' => $channel]), $this->standardError->channel()),
             $this->standardError->channel(),
             $this->clock,
             self::WINDOW,
@@ -157,7 +158,7 @@ final class AlerterTest extends TestCase
         $alerter = new Alerter(
             'shop-prod',
             new Throttle(new ArrayAdapter(), $clock, self::WINDOW, 20),
-            new ChannelChain(['messaging' => $channel], $this->standardError->channel()),
+            new ChannelChain(Channels::built(['messaging' => $channel]), $this->standardError->channel()),
             $this->standardError->channel(),
             $clock,
             self::WINDOW,
@@ -178,7 +179,7 @@ final class AlerterTest extends TestCase
         return new Alerter(
             'shop-prod',
             new Throttle(new ArrayAdapter(), $this->clock, self::WINDOW, $cap),
-            new ChannelChain(['messaging' => $channel], $this->standardError->channel()),
+            new ChannelChain(Channels::built(['messaging' => $channel]), $this->standardError->channel()),
             $this->standardError->channel(),
             $this->clock,
             self::WINDOW,

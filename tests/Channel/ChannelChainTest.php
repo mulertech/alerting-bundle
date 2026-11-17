@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Tests\Channel;
 
+use MulerTech\AlertingBundle\Channel\ChannelInterface;
+use MulerTech\AlertingBundle\Tests\Double\Channels;
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Delivery;
 use MulerTech\AlertingBundle\Alert\Severity;
@@ -21,7 +23,7 @@ final class ChannelChainTest extends TestCase
         $first = new RecordingChannel();
         $second = new RecordingChannel();
 
-        new ChannelChain(['messaging' => $first, 'mail' => $second], $standardError->channel())->send($this->delivery());
+        new ChannelChain(Channels::built(['messaging' => $first, 'mail' => $second]), $standardError->channel())->send($this->delivery());
 
         self::assertCount(1, $first->deliveries);
         self::assertSame([], $second->deliveries);
@@ -34,7 +36,7 @@ final class ChannelChainTest extends TestCase
         $mail = new RecordingChannel();
 
         new ChannelChain(
-            ['messaging' => new RefusingChannel('Database unreachable'), 'mail' => $mail],
+            Channels::built(['messaging' => new RefusingChannel('Database unreachable'), 'mail' => $mail]),
             $standardError->channel(),
         )->send($this->delivery());
 
@@ -46,12 +48,26 @@ final class ChannelChainTest extends TestCase
         self::assertSame([], $standardError->lines());
     }
 
+    public function testAChannelThatCannotBeBuiltRefusesTheAlertAndSaysWhy(): void
+    {
+        $standardError = new StandardErrorFile();
+        $chat = new RecordingChannel();
+
+        new ChannelChain(
+            ['mail' => static fn (): ChannelInterface => throw new \RuntimeException('Environment variable not found: "MAILER_DSN_FILE".'), 'chat' => static fn (): ChannelInterface => $chat],
+            $standardError->channel(),
+        )->send($this->delivery());
+
+        self::assertCount(1, $chat->deliveries);
+        self::assertSame(['Channel "mail" refused the alert: RuntimeException: Environment variable not found: "MAILER_DSN_FILE".'], $chat->deliveries[0]->incidents);
+    }
+
     public function testStandardErrorReceivesWhatNoChannelAccepted(): void
     {
         $standardError = new StandardErrorFile();
 
         new ChannelChain(
-            ['messaging' => new RefusingChannel('Database unreachable'), 'mail' => new RefusingChannel('Authentication failed')],
+            Channels::built(['messaging' => new RefusingChannel('Database unreachable'), 'mail' => new RefusingChannel('Authentication failed')]),
             $standardError->channel(),
         )->send($this->delivery());
 
@@ -79,7 +95,7 @@ final class ChannelChainTest extends TestCase
         $messaging = new RecordingChannel();
         $mail = new RecordingChannel();
 
-        new ChannelChain(['chat' => $chat, 'messaging' => $messaging, 'mail' => $mail], $standardError->channel())->send($this->delivery(), after: 'messaging');
+        new ChannelChain(Channels::built(['chat' => $chat, 'messaging' => $messaging, 'mail' => $mail]), $standardError->channel())->send($this->delivery(), after: 'messaging');
 
         self::assertSame([], $chat->deliveries);
         self::assertSame([], $messaging->deliveries);
@@ -91,7 +107,7 @@ final class ChannelChainTest extends TestCase
         $standardError = new StandardErrorFile();
         $mail = new RecordingChannel();
 
-        new ChannelChain(['mail' => $mail], $standardError->channel())->send($this->delivery(), after: 'mail');
+        new ChannelChain(Channels::built(['mail' => $mail]), $standardError->channel())->send($this->delivery(), after: 'mail');
 
         self::assertSame([], $mail->deliveries);
         self::assertCount(1, $standardError->lines());

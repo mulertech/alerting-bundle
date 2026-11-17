@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Tests\Command;
 
+use MulerTech\AlertingBundle\Tests\Double\Channels;
 use MulerTech\AlertingBundle\Channel\ChannelInterface;
 use MulerTech\AlertingBundle\Command\TestCommand;
 use MulerTech\AlertingBundle\Probe\PoolProbe;
@@ -126,7 +127,26 @@ final class TestCommandTest extends TestCase
         self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
         self::assertCount(0, $mail->deliveries);
         self::assertSame([], $standardError->lines());
-        self::assertStringContainsString('The worker shares the cache pool of the alerting.', $tester->getDisplay());
+        self::assertStringContainsString('✔ mail is built', $tester->getDisplay());
+        self::assertStringContainsString('[OK] Every channel is built, and the worker shares the cache pool', $tester->getDisplay());
+    }
+
+    /**
+     * The probe runs at each deployment: a channel reading a secret the deployment did not provide
+     * fails it there, rather than at the first alert.
+     */
+    public function testTheProbeAloneNamesAChannelThatCannotBeBuilt(): void
+    {
+        $kit = new AlertingKit();
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+        $channels = ['mail' => static fn (): ChannelInterface => throw new \RuntimeException('Environment variable not found: "MAILER_DSN_FILE".')];
+
+        $tester = new CommandTester(new TestCommand('shop-prod', $channels, new StandardErrorFile()->channel(), new MockClock(), $probe));
+        $tester->execute(['--probe-only' => true]);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('✘ mail cannot be built: RuntimeException: Environment variable not found: "MAILER_DSN_FILE".', $tester->getDisplay());
+        self::assertStringContainsString('Failed: mail.', $tester->getDisplay());
     }
 
     public function testTheProbeAloneNeedsTheWorkerWatched(): void
@@ -171,7 +191,7 @@ final class TestCommandTest extends TestCase
      */
     private function tester(array $channels, StandardErrorFile $standardError, ?PoolProbeSender $probe = null, array $input = []): CommandTester
     {
-        $tester = new CommandTester(new TestCommand('shop-prod', $channels, $standardError->channel(), new MockClock(), $probe));
+        $tester = new CommandTester(new TestCommand('shop-prod', Channels::built($channels), $standardError->channel(), new MockClock(), $probe));
         $tester->execute($input);
 
         return $tester;

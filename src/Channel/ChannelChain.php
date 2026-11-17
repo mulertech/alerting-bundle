@@ -13,11 +13,15 @@ use MulerTech\AlertingBundle\Alert\Delivery;
  *
  * A reminder about alerts left unread in a channel starts after that channel, since that is the one
  * nobody reads.
+ *
+ * Each channel is built when an alert reaches it, never before: a channel reads its DSN from a
+ * secret the runtime mounts, and a build boots the kernel without it. A channel that cannot be
+ * built refuses the alert, and says why.
  */
 final readonly class ChannelChain
 {
     /**
-     * @param array<string, ChannelInterface> $channels keyed by their declared name
+     * @param array<string, \Closure(): ChannelInterface> $channels keyed by their declared name
      */
     public function __construct(
         private array $channels,
@@ -37,7 +41,7 @@ final readonly class ChannelChain
             }
 
             try {
-                $channel->send($delivery);
+                $channel()->send($delivery);
 
                 return;
             } catch (\Throwable $failure) {

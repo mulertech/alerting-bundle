@@ -25,13 +25,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *
  * When the worker heartbeat is watched, it also proves that the worker shares the pool of the web.
  * That proof alone, with `--probe-only`, suits each deployment: every test alert reaches a person,
- * and a text message is paid for.
+ * and a text message is paid for. It still builds every channel, sending nothing: a channel reading
+ * a secret the deployment did not provide would otherwise fail at the first alert.
  */
 #[AsCommand(name: 'mulertech:alerting:test', description: 'Sends a test alert through each declared channel, one by one')]
 final class TestCommand extends Command
 {
     /**
-     * @param array<string, ChannelInterface> $channels keyed by their declared name
+     * @param array<string, \Closure(): ChannelInterface> $channels keyed by their declared name
      */
     public function __construct(
         private readonly string $application,
@@ -47,7 +48,7 @@ final class TestCommand extends Command
     {
         $this
             ->addOption('channel', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Tries only this channel; repeat the option for several')
-            ->addOption('probe-only', null, InputOption::VALUE_NONE, 'Sends no test alert, and only proves that the worker shares the cache pool of the alerting');
+            ->addOption('probe-only', null, InputOption::VALUE_NONE, 'Sends no test alert: builds every channel, and proves that the worker shares the cache pool of the alerting');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -77,7 +78,7 @@ final class TestCommand extends Command
             return Command::INVALID;
         }
 
-        $refused = $probeOnly ? [] : $this->sendTestAlerts($io, $chosen);
+        $refused = $probeOnly ? $this->buildChannels($io) : $this->sendTestAlerts($io, $chosen);
 
         if (null !== $this->probe && [] === $chosen) {
             if ($this->probe->probe()) {
@@ -93,12 +94,12 @@ final class TestCommand extends Command
         }
 
         if ([] !== $refused) {
-            $io->error(\sprintf('Refused the test alert: %s.', implode(', ', $refused)));
+            $io->error(\sprintf($probeOnly ? 'Failed: %s.' : 'Refused the test alert: %s.', implode(', ', $refused)));
 
             return Command::FAILURE;
         }
 
-        $io->success($probeOnly ? 'The worker shares the cache pool of the alerting.' : 'Every channel tried accepted the test alert. Check that each one arrived.');
+        $io->success($probeOnly ? 'Every channel is built, and the worker shares the cache pool of the alerting.' : 'Every channel tried accepted the test alert. Check that each one arrived.');
 
         return Command::SUCCESS;
     }
@@ -120,7 +121,7 @@ final class TestCommand extends Command
             }
 
             try {
-                $channel->send($this->delivery($name));
+                $channel()->send($this->delivery($name));
                 $io->writeln(\sprintf('<info>✔</info> %s', $name));
             } catch (\Throwable $failure) {
                 $refused[] = $name;
@@ -131,6 +132,26 @@ final class TestCommand extends Command
         if ([] === $chosen) {
             $this->standardError->send($this->delivery('standard error'));
             $io->writeln('<info>✔</info> standard error, written to the error output of this process');
+        }
+
+        return $refused;
+    }
+
+    /**
+     * @return list<string> the channels that could not be built
+     */
+    private function buildChannels(SymfonyStyle $io): array
+    {
+        $refused = [];
+
+        foreach ($this->channels as $name => $channel) {
+            try {
+                $channel();
+                $io->writeln(\sprintf('<info>✔</info> %s is built', $name));
+            } catch (\Throwable $failure) {
+                $refused[] = $name;
+                $io->writeln(\sprintf('<error>✘</error> %s cannot be built: %s: %s', $name, $failure::class, $failure->getMessage()));
+            }
         }
 
         return $refused;

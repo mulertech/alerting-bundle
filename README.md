@@ -133,9 +133,11 @@ never through the `mailer`, `chatter` or `texter` services: those hand their mes
 when the application routes them there, and the queue often lives in the database whose failure
 the alert reports. Each channel waits no longer than `timeout` seconds (10 by default).
 
-The channels are built when the kernel boots, `cache:clear` included: every variable they read must
-exist wherever the cache is warmed, the build of an image included. One missing stops the boot and
-names it, rather than leaving the application without alerts.
+A channel is built when an alert first reaches it, never with the kernel: an image build boots
+the kernel without the secrets the runtime mounts, such as the file a DSN is read from. A channel
+that cannot be built refuses the alert like any other, naming the cause, and the next channel takes
+it. `mulertech:alerting:test --probe-only` builds every channel without sending anything: run at each
+deployment, it names a variable the deployment did not provide before an alert needs it.
 
 ### A channel of the application
 
@@ -191,7 +193,7 @@ Each absence is watched only once declared.
 ```bash
 php bin/console mulertech:alerting:test                   # a test alert through each channel, one by one
 php bin/console mulertech:alerting:test --channel=chat    # through this channel only; repeat for several
-php bin/console mulertech:alerting:test --probe-only      # no test alert: only the pool probe
+php bin/console mulertech:alerting:test --probe-only      # no test alert: builds the channels, probes the pool
 php bin/console mulertech:alerting:check                  # checks the absences now
 ```
 
@@ -200,9 +202,10 @@ serves the day the first one falls, and this is the only way to try it before. W
 watched, the command also proves that the worker reads the pool the web writes; a worker that does
 not sends an alert saying so.
 
-Run `mulertech:alerting:test --probe-only` at each deployment: a new container may mount another
-directory, or reach another Redis, and the probe sees it. Every test alert reaches a person, and a
-text message is paid for: test alerts at each deployment end up unread.
+Run `mulertech:alerting:test --probe-only` at each deployment: a new container may lack a secret a
+channel reads, mount another directory, or reach another Redis, and the command sees it. Every test
+alert reaches a person, and a text message is paid for: test alerts at each deployment end up
+unread.
 
 Run the probe last, once the worker of the new release consumes: a worker that has not started
 yet answers nothing, the command fails, and a deployment that stops at the first error stops there

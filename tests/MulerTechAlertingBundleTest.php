@@ -97,6 +97,30 @@ final class MulerTechAlertingBundleTest extends TestCase
         self::assertCount(1, $channel->deliveries, $tester->getDisplay());
     }
 
+    /**
+     * A build boots the kernel without the secrets of the runtime: a channel reading one must not
+     * be built before an alert needs it, and then its failure is a refusal like any other.
+     */
+    public function testAChannelReadingAnAbsentSecretLetsTheKernelBootAndSaysSoWhenItIsNeeded(): void
+    {
+        $kernel = $this->kernel($this->config(['channels' => ['mail' => ['dsn' => '%env(file:ALERTING_ABSENT_DSN_FILE)%'] + self::MAIL]]));
+        $kernel->boot();
+
+        // What a build runs: a console command, its events reaching the console source.
+        self::assertSame(Command::SUCCESS, $this->command($kernel, 'about')->getStatusCode());
+
+        $logger = $kernel->getContainer()->get('test.service_container')->get('monolog.logger');
+        \assert($logger instanceof Logger);
+        $logger->error('Import of {file} failed', ['file' => 'parkings.geojsonseq']);
+
+        $alerts = $kernel->standardError();
+        self::assertCount(1, $alerts);
+        self::assertSame('Import of parkings.geojsonseq failed', $alerts[0]['summary']);
+        self::assertIsArray($alerts[0]['incidents']);
+        self::assertStringContainsString('Channel "mail" refused the alert', (string) $alerts[0]['incidents'][0]);
+        self::assertStringContainsString('ALERTING_ABSENT_DSN_FILE', (string) $alerts[0]['incidents'][0]);
+    }
+
     public function testTheStatusCodesOfTheFrameworkAreThoseTheAlertingJudgesBy(): void
     {
         $kernel = $this->kernel($this->config(), framework: ['exceptions' => [\DomainException::class => ['status_code' => 422]]]);

@@ -53,7 +53,7 @@ final class AlertingKit
         $this->alerter = new Alerter(
             'shop-prod',
             new Throttle($this->pool, $this->clock, 900, 20),
-            new ChannelChain([] === $channels ? ['recording' => $this->channel] : $channels, $this->standardError->channel()),
+            new ChannelChain(Channels::built([] === $channels ? ['recording' => $this->channel] : $channels), $this->standardError->channel()),
             $this->standardError->channel(),
             $this->clock,
             900,
