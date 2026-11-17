@@ -67,6 +67,30 @@ final class ThrottleTest extends TestCase
         self::assertSame(2, $admission->suppressed);
     }
 
+    /**
+     * The count alone does not say whether what it held back spans a minute or a day.
+     */
+    public function testTheCountComesWithWhenThePreviousAlertLeft(): void
+    {
+        $throttle = $this->throttle();
+        $sentAt = $this->clock->now()->getTimestamp();
+        $throttle->admit($this->alert('a'));
+        $this->clock->sleep(60);
+        $throttle->admit($this->alert('a'));
+        $this->clock->sleep(5 * 3600);
+
+        self::assertSame($sentAt, $throttle->admit($this->alert('a'))->previousAlertAt);
+    }
+
+    public function testNothingHeldBackNamesNoPreviousAlert(): void
+    {
+        $throttle = $this->throttle();
+        $throttle->admit($this->alert('a'));
+        $this->clock->sleep(self::WINDOW);
+
+        self::assertNull($throttle->admit($this->alert('a'))->previousAlertAt);
+    }
+
     public function testTheCountStartsAgainAfterItWasReported(): void
     {
         $throttle = $this->throttle();

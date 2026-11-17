@@ -87,7 +87,7 @@ final class Throttle
         $previous = self::read($tally);
 
         if (null !== $previous && $now < $previous['until']) {
-            $this->write($tally, $previous['until'], $previous['count'] + 1, $previous['until'] - $now + self::TALLY_RETENTION);
+            $this->write($tally, $previous['until'], $previous['count'] + 1, $previous['until'] - $now + self::TALLY_RETENTION, $previous['sent']);
 
             return new Admission(Verdict::Suppress);
         }
@@ -109,13 +109,13 @@ final class Throttle
             return new Admission(Verdict::CapReached);
         }
 
-        $this->write($tally, $now + $this->window, 0, $this->window + self::TALLY_RETENTION);
+        $this->write($tally, $now + $this->window, 0, $this->window + self::TALLY_RETENTION, $now);
 
-        return new Admission(Verdict::Send, $previous['count'] ?? 0);
+        return new Admission(Verdict::Send, $previous['count'] ?? 0, previousAlertAt: null !== $previous && $previous['count'] > 0 ? $previous['sent'] : null);
     }
 
     /**
-     * @return array{until: int, count: int}|null
+     * @return array{until: int, count: int, sent: int|null}|null
      */
     private static function read(CacheItemInterface $item): ?array
     {
@@ -129,12 +129,15 @@ final class Throttle
             return null;
         }
 
-        return ['until' => $value['until'], 'count' => $value['count']];
+        return ['until' => $value['until'], 'count' => $value['count'], 'sent' => \is_int($value['sent'] ?? null) ? $value['sent'] : null];
     }
 
-    private function write(CacheItemInterface $item, int $until, int $count, int $lifetime): void
+    /**
+     * @param int|null $sent when the last alert of the fault left; the cap's own count has none
+     */
+    private function write(CacheItemInterface $item, int $until, int $count, int $lifetime, ?int $sent = null): void
     {
-        $item->set(['until' => $until, 'count' => $count]);
+        $item->set(['until' => $until, 'count' => $count, 'sent' => $sent]);
         $item->expiresAfter($lifetime);
 
         if (!$this->pool->save($item)) {

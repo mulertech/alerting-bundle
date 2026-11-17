@@ -45,9 +45,10 @@ final readonly class TextFormatter
         }
 
         if ($delivery->suppressed > 0) {
+            $since = null === $delivery->previousAlertAt ? 'the previous alert' : 'the previous alert, sent at '.$delivery->previousAlertAt->format(\DATE_ATOM);
             $sections[] = 1 === $delivery->suppressed
-                ? 'One more occurrence of this fault was held back since the previous alert.'
-                : \sprintf('%d more occurrences of this fault were held back since the previous alert.', $delivery->suppressed);
+                ? \sprintf('One more occurrence of this fault was held back since %s.', $since)
+                : \sprintf('%d more occurrences of this fault were held back since %s.', $delivery->suppressed, $since);
         }
 
         if ([] !== $delivery->incidents) {

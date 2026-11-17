@@ -75,6 +75,22 @@ final class TextFormatterTest extends TestCase
         );
     }
 
+    public function testTheHeldBackOccurrencesSayWhenThePreviousAlertLeft(): void
+    {
+        $delivery = new Delivery(
+            'shop-prod',
+            new Alert(Severity::Error, 'schedule', 'The scheduled task "App\\Message\\RefreshPoiAccess" has not completed', []),
+            new \DateTimeImmutable('2026-11-17 18:24:39', new \DateTimeZone('Europe/Paris')),
+            1,
+            previousAlertAt: new \DateTimeImmutable('2026-11-17 15:02:10', new \DateTimeZone('Europe/Paris')),
+        );
+
+        self::assertStringContainsString(
+            'One more occurrence of this fault was held back since the previous alert, sent at 2026-11-17T15:02:10+01:00.',
+            new TextFormatter()->body($delivery),
+        );
+    }
+
     public function testASingleOccurrenceHeldBackIsSaidInTheSingular(): void
     {
         $delivery = new Delivery(

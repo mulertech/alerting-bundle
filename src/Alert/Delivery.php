@@ -13,7 +13,9 @@ namespace MulerTech\AlertingBundle\Alert;
 final readonly class Delivery
 {
     /**
-     * @param list<string> $incidents
+     * @param list<string>            $incidents
+     * @param \DateTimeImmutable|null $previousAlertAt when the last alert of the same fault left, when some were held back since:
+     *                                                 a count alone does not say whether they span a minute or a day
      */
     public function __construct(
         public string $application,
@@ -21,11 +23,12 @@ final readonly class Delivery
         public \DateTimeImmutable $raisedAt,
         public int $suppressed = 0,
         public array $incidents = [],
+        public ?\DateTimeImmutable $previousAlertAt = null,
     ) {
     }
 
     public function withIncident(string $incident): self
     {
-        return new self($this->application, $this->alert, $this->raisedAt, $this->suppressed, [...$this->incidents, $incident]);
+        return new self($this->application, $this->alert, $this->raisedAt, $this->suppressed, [...$this->incidents, $incident], $this->previousAlertAt);
     }
 }

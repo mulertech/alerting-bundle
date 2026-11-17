@@ -60,6 +60,7 @@ final class AlerterTest extends TestCase
 
         self::assertCount(2, $channel->deliveries);
         self::assertSame(2, $channel->deliveries[1]->suppressed);
+        self::assertEquals($channel->deliveries[0]->raisedAt, $channel->deliveries[1]->previousAlertAt);
     }
 
     public function testReachingTheCapSendsANoticeAndKeepsTheAlertOnStandardError(): void

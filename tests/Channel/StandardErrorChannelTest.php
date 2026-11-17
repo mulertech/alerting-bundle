@@ -28,6 +28,7 @@ final class StandardErrorChannelTest extends TestCase
             'summary' => 'Database "main" unreachable',
             'context' => ['route' => 'app_home'],
             'suppressed' => 3,
+            'previous_alert_at' => '2026-11-16T08:30:00+00:00',
             'incidents' => ['Channel "mail" refused the alert: RuntimeException: Connection refused'],
             'raised_at' => '2026-11-16T10:00:00+00:00',
         ]], $file->lines());
@@ -85,6 +86,7 @@ final class StandardErrorChannelTest extends TestCase
             new \DateTimeImmutable('2026-11-16 10:00:00', new \DateTimeZone('UTC')),
             3,
             ['Channel "mail" refused the alert: RuntimeException: Connection refused'],
+            new \DateTimeImmutable('2026-11-16 08:30:00', new \DateTimeZone('UTC')),
         );
     }
 }

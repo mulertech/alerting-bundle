@@ -79,6 +79,7 @@ final class Alerter
                 $this->clock->now(),
                 $admission->suppressed,
                 $admission->incidents,
+                null === $admission->previousAlertAt ? null : $this->clock->now()->setTimestamp($admission->previousAlertAt),
             ), $after),
             Verdict::CapReached => $this->reachCap($alert, $admission->incidents),
             Verdict::OverCap => $this->standardError->send($this->overCap($alert, $admission->incidents)),

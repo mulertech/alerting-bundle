@@ -28,6 +28,7 @@ final readonly class StandardErrorChannel
             'summary' => $delivery->alert->summary,
             'context' => $delivery->alert->context,
             'suppressed' => $delivery->suppressed,
+            'previous_alert_at' => $delivery->previousAlertAt?->format(\DATE_ATOM),
             'incidents' => $delivery->incidents,
             'raised_at' => $delivery->raisedAt->format(\DATE_ATOM),
         ], \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_INVALID_UTF8_SUBSTITUTE | \JSON_THROW_ON_ERROR);
