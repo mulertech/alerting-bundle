@@ -87,6 +87,28 @@ when@prod:
             arguments: ['alerting', 0, '%kernel.project_dir%/var/alerting']
 ```
 
+With Docker Compose, the web and the worker are two containers: mount one volume at that
+directory in both.
+
+```yaml
+# compose.yaml
+services:
+    www:
+        volumes: [alerting:/var/www/html/var/alerting]
+    worker:
+        volumes: [alerting:/var/www/html/var/alerting]
+volumes:
+    alerting:
+```
+
+Docker creates an empty named volume owned by `root`, unless the image already holds the directory,
+whose owner it then takes. An application running as another user could write nothing there:
+create the directory in the image, owned by that user.
+
+```dockerfile
+RUN mkdir -p var/alerting && chown www-data:www-data var/alerting
+```
+
 On Redis or Memcached, a pool of the framework does:
 
 ```yaml
@@ -210,7 +232,14 @@ unread.
 
 Run the probe last, once the worker of the new release consumes: a worker that has not started
 yet answers nothing, the command fails, and a deployment that stops at the first error stops there
-with nothing broken.
+with nothing broken. With Docker Compose, it closes the deployment script, which stops on its
+failure:
+
+```bash
+set -e
+docker compose up --detach --build
+docker compose exec -T www php bin/console mulertech:alerting:test --probe-only
+```
 
 A worker that has started may still be busy: it answers once its message in hand is done, a
 scheduled task included. The probe therefore waits as long as `silence`, the longest message the

@@ -181,7 +181,9 @@ final class MulerTechAlertingBundle extends AbstractBundle
     {
         if ($builder->hasExtension('monolog')) {
             $builder->prependExtensionConfig('monolog', [
-                'handlers' => ['mulertech_alerting' => ['type' => 'service', 'id' => self::PREFIX.'monolog_handler']],
+                // First of the handlers: on an out-of-memory error it raises the limit, and a handler
+                // running before it would exhaust what Symfony freed for the whole error.
+                'handlers' => ['mulertech_alerting' => ['type' => 'service', 'id' => self::PREFIX.'monolog_handler', 'priority' => AlertingHandler::PRIORITY]],
             ]);
         }
     }

@@ -66,6 +66,7 @@ final class MulerTechAlertingBundleTest extends TestCase
         \assert($logger instanceof Logger);
 
         self::assertContains(AlertingHandler::class, array_map(static fn (object $handler): string => $handler::class, $logger->getHandlers()));
+        self::assertInstanceOf(AlertingHandler::class, $logger->getHandlers()[0], 'It runs first, to raise the memory limit before any other handler spends it.');
     }
 
     public function testTheTestCommandSendsThroughEveryDeclaredChannel(): void

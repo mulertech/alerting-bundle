@@ -10,6 +10,7 @@ use Monolog\LogRecord;
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Alerter;
+use Symfony\Component\ErrorHandler\Error\OutOfMemoryError;
 
 /**
  * Reports what reaches the logs at `error` and above and no other source owns: the errors the
@@ -25,6 +26,15 @@ final class AlertingHandler extends AbstractProcessingHandler
 {
     public const string OWNER = 'log';
 
+    public const int PRIORITY = 1024;
+
+    /**
+     * What an out-of-memory error is given above what the process already holds: enough to build
+     * the alerter and its channels, and to send through them. Symfony frees 32 KiB for the whole
+     * error, which a single class loaded exhausts.
+     */
+    private const int OUT_OF_MEMORY_MARGIN = 32 * 1024 * 1024;
+
     /**
      * @param \Closure(): Alerter $alerter
      */
@@ -39,6 +49,10 @@ final class AlertingHandler extends AbstractProcessingHandler
     protected function write(LogRecord $record): void
     {
         $exception = $record->context['exception'] ?? null;
+
+        if ($exception instanceof OutOfMemoryError) {
+            self::raiseMemoryLimit();
+        }
         $severity = $record->level->isHigherThan(Level::Error) ? Severity::Critical : Severity::Error;
         $context = ['channel' => $record->channel, ...$record->context];
         $summary = self::interpolate($record->message, $record->context);
@@ -56,6 +70,18 @@ final class AlertingHandler extends AbstractProcessingHandler
         }
 
         $this->report($this->factory->create('log', $severity, $summary, $exception, $context, [$record->channel]));
+    }
+
+    /**
+     * Only ever raised, and left alone when unlimited: the process is ending on this error.
+     */
+    private static function raiseMemoryLimit(): void
+    {
+        if ('-1' === \ini_get('memory_limit')) {
+            return;
+        }
+
+        @ini_set('memory_limit', (string) (memory_get_usage(true) + self::OUT_OF_MEMORY_MARGIN));
     }
 
     /**

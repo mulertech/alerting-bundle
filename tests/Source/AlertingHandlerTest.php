@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Tests\Source;
 
+use Symfony\Component\ErrorHandler\Error\OutOfMemoryError;
 use MulerTech\AlertingBundle\Alerter;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Source\AlertingHandler;
@@ -109,6 +110,28 @@ final class AlertingHandlerTest extends TestCase
         }
 
         self::assertStringContainsString('mulertech_alerting could not be built, so this alert reaches the error log only: Import of parkings.geojsonseq failed. Cause: RuntimeException: Connection refused', $logged);
+    }
+
+    /**
+     * Symfony frees 32 KiB to log an out-of-memory error: the limit is raised before the alerter,
+     * its pool and its channels are built and sent through.
+     */
+    public function testAnOutOfMemoryErrorRaisesTheLimitBeforeItIsReported(): void
+    {
+        $kit = new AlertingKit();
+        $previous = (string) \ini_get('memory_limit');
+        ini_set('memory_limit', (string) (memory_get_usage(true) + 4 * 1024 * 1024));
+
+        try {
+            $error = new OutOfMemoryError('Error: Allowed memory size of 50331648 bytes exhausted', 0, ['type' => \E_ERROR, 'message' => 'Allowed memory size of 50331648 bytes exhausted', 'file' => __FILE__, 'line' => __LINE__], 0);
+            $this->handler($kit)->handle($this->record(Level::Critical, 'Fatal Error: Allowed memory size of 50331648 bytes exhausted', ['exception' => $error], 'php'));
+            $raised = (int) \ini_get('memory_limit');
+        } finally {
+            ini_set('memory_limit', $previous);
+        }
+
+        self::assertGreaterThanOrEqual(memory_get_usage(true) + 30 * 1024 * 1024, $raised);
+        self::assertSame(Severity::Critical, $kit->only()->alert->severity);
     }
 
     private function handler(AlertingKit $kit): AlertingHandler
