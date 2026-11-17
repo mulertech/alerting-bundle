@@ -29,14 +29,23 @@ final readonly class ThrowableAlertFactory
     public function create(string $source, Severity $severity, string $what, \Throwable $throwable, array $context = [], array $identity = []): Alert
     {
         $at = $this->relative($throwable->getFile()).':'.$throwable->getLine();
+        $message = trim($throwable->getMessage());
+        $headline = strtok($message, "\n") ?: $message;
         $context += ['exception' => $throwable::class, 'at' => $at];
+
+        // The first line says what failed; what follows is detail — the commands a console
+        // suggests, a stack of SQL — which belongs to the body, not to the line read first.
+        if ($headline !== $message) {
+            $context['message'] = $message;
+        }
+
         $dependency = $this->classifier->classify($throwable);
 
         if (null !== $dependency) {
             return new Alert(
                 Severity::Critical,
                 'dependency',
-                \sprintf('Dependency "%s" failed: %s', $dependency, $throwable->getMessage()),
+                \sprintf('Dependency "%s" failed: %s', $dependency, $headline),
                 [$dependency],
                 ['seen_in' => $what, ...$context],
             );
@@ -45,7 +54,7 @@ final readonly class ThrowableAlertFactory
         return new Alert(
             $severity,
             $source,
-            \sprintf('%s: %s: %s', $what, $throwable::class, $throwable->getMessage()),
+            \sprintf('%s: %s: %s', $what, $throwable::class, $headline),
             [...$identity, $throwable::class, $this->relative($throwable->getFile()), (string) $throwable->getLine()],
             $context,
         );

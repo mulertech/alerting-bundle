@@ -24,6 +24,24 @@ final class ThrowableAlertFactoryTest extends TestCase
         self::assertSame(['status' => '500', 'exception' => 'RuntimeException', 'at' => 'src/Cart.php:42'], $alert->context);
     }
 
+    public function testAMessageOnSeveralLinesLeavesItsDetailToTheContext(): void
+    {
+        $message = "Command \"app:import\" is not defined.\n\nDid you mean one of these?\n    app:import-parkings\n    app:import-pois";
+        $failure = $this->thrownAt('/srv/app/vendor/symfony/console/Application.php', 786, new \RuntimeException($message));
+
+        $alert = $this->factory()->create('console', Severity::Error, 'Console "app:import" failed before any command ran', $failure);
+
+        self::assertSame('Console "app:import" failed before any command ran: RuntimeException: Command "app:import" is not defined.', $alert->summary);
+        self::assertSame($message, $alert->context['message']);
+    }
+
+    public function testAMessageOnOneLineIsNotRepeatedInTheContext(): void
+    {
+        $alert = $this->factory()->create('http', Severity::Error, 'Request', $this->thrownAt('/srv/app/src/Cart.php', 42, new \RuntimeException('Cart 12 not found')));
+
+        self::assertArrayNotHasKey('message', $alert->context);
+    }
+
     public function testTheMessageIsNoPartOfTheIdentity(): void
     {
         $factory = $this->factory();
