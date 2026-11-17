@@ -6,6 +6,10 @@ namespace MulerTech\AlertingBundle\Tests\Command;
 
 use MulerTech\AlertingBundle\Channel\ChannelInterface;
 use MulerTech\AlertingBundle\Command\TestCommand;
+use MulerTech\AlertingBundle\Probe\PoolProbe;
+use MulerTech\AlertingBundle\Probe\PoolProbeHandler;
+use MulerTech\AlertingBundle\Probe\PoolProbeSender;
+use MulerTech\AlertingBundle\Tests\Double\AlertingKit;
 use MulerTech\AlertingBundle\Tests\Double\RecordingChannel;
 use MulerTech\AlertingBundle\Tests\Double\RefusingChannel;
 use MulerTech\AlertingBundle\Tests\Double\StandardErrorFile;
@@ -13,6 +17,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 final class TestCommandTest extends TestCase
 {
@@ -57,12 +63,53 @@ final class TestCommandTest extends TestCase
         self::assertStringContainsString('✔ standard error', $tester->getDisplay());
     }
 
+    public function testAWorkerSharingThePoolPassesTheProbe(): void
+    {
+        $kit = new AlertingKit();
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+
+        $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), $probe);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+        self::assertStringContainsString('✔ the worker of "async" shares the cache pool of the alerting', $tester->getDisplay());
+    }
+
+    public function testAProbeWithoutAnswerFailsTheCommandAndSaysWhatItMeans(): void
+    {
+        $kit = new AlertingKit();
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(null), $kit->clock, 'async', 5);
+
+        $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), $probe);
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        self::assertStringContainsString('✘ pool probe: no answer from the worker of "async" within 5 seconds.', $tester->getDisplay());
+        self::assertStringContainsString('Refused the test alert: pool probe.', $tester->getDisplay());
+    }
+
+    private function bus(?PoolProbeHandler $worker): MessageBusInterface
+    {
+        return new class($worker) implements MessageBusInterface {
+            public function __construct(private readonly ?PoolProbeHandler $worker)
+            {
+            }
+
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                if (null !== $this->worker && $message instanceof PoolProbe) {
+                    ($this->worker)($message);
+                }
+
+                return new Envelope($message, $stamps);
+            }
+        };
+    }
+
     /**
      * @param array<string, ChannelInterface> $channels
      */
-    private function tester(array $channels, StandardErrorFile $standardError): CommandTester
+    private function tester(array $channels, StandardErrorFile $standardError, ?PoolProbeSender $probe = null): CommandTester
     {
-        $tester = new CommandTester(new TestCommand('shop-prod', $channels, $standardError->channel(), new MockClock()));
+        $tester = new CommandTester(new TestCommand('shop-prod', $channels, $standardError->channel(), new MockClock(), $probe));
         $tester->execute([]);
 
         return $tester;

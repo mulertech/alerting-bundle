@@ -39,7 +39,10 @@ final class Alerter
     ) {
     }
 
-    public function alert(Alert $alert): void
+    /**
+     * @param string|null $after the channel to skip, with every channel before it
+     */
+    public function alert(Alert $alert, ?string $after = null): void
     {
         if ($this->sending) {
             $this->standardError->send($this->deliver($alert)->withIncident(
@@ -52,7 +55,7 @@ final class Alerter
         $this->sending = true;
 
         try {
-            $this->dispatch($alert);
+            $this->dispatch($alert, $after);
         } catch (\Throwable $failure) {
             $this->standardError->send($this->deliver($alert)->withIncident(\sprintf(
                 'The alerting failed: %s: %s',
@@ -64,7 +67,7 @@ final class Alerter
         }
     }
 
-    private function dispatch(Alert $alert): void
+    private function dispatch(Alert $alert, ?string $after): void
     {
         $admission = $this->throttle->admit($alert);
 
@@ -76,7 +79,7 @@ final class Alerter
                 $this->clock->now(),
                 $admission->suppressed,
                 $admission->incidents,
-            )),
+            ), $after),
             Verdict::CapReached => $this->reachCap($alert, $admission->incidents),
             Verdict::OverCap => $this->standardError->send($this->overCap($alert, $admission->incidents)),
         };

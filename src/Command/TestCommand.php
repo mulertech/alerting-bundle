@@ -9,6 +9,7 @@ use MulerTech\AlertingBundle\Alert\Delivery;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Channel\ChannelInterface;
 use MulerTech\AlertingBundle\Channel\StandardErrorChannel;
+use MulerTech\AlertingBundle\Probe\PoolProbeSender;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -20,6 +21,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Sends a test alert through each declared channel, one by one rather than through the chain: in
  * a chain, the second channel only serves the day the first one falls, so without this its
  * configuration is first tried that day.
+ *
+ * When the worker heartbeat is watched, it also proves that the worker shares the pool of the web.
  */
 #[AsCommand(name: 'mulertech:alerting:test', description: 'Sends a test alert through each declared channel, one by one')]
 final class TestCommand extends Command
@@ -32,6 +35,7 @@ final class TestCommand extends Command
         private readonly array $channels,
         private readonly StandardErrorChannel $standardError,
         private readonly ClockInterface $clock,
+        private readonly ?PoolProbeSender $probe = null,
     ) {
         parent::__construct();
     }
@@ -53,6 +57,19 @@ final class TestCommand extends Command
 
         $this->standardError->send($this->delivery('standard error'));
         $io->writeln('<info>✔</info> standard error, written to the error output of this process');
+
+        if (null !== $this->probe) {
+            if ($this->probe->probe()) {
+                $io->writeln(\sprintf('<info>✔</info> the worker of "%s" shares the cache pool of the alerting', $this->probe->transport));
+            } else {
+                $refused[] = 'pool probe';
+                $io->writeln(\sprintf(
+                    '<error>✘</error> pool probe: no answer from the worker of "%s" within %d seconds. Either the worker is stopped, or it does not share the cache pool of the alerting, and then it sends an alert saying so once it handles the probe.',
+                    $this->probe->transport,
+                    $this->probe->wait,
+                ));
+            }
+        }
 
         if ([] !== $refused) {
             $io->error(\sprintf('Refused the test alert: %s.', implode(', ', $refused)));

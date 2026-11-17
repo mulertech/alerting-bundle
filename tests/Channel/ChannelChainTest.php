@@ -72,6 +72,31 @@ final class ChannelChainTest extends TestCase
         self::assertCount(1, $standardError->lines());
     }
 
+    public function testAReminderSkipsTheChannelNamedAndThoseBeforeIt(): void
+    {
+        $standardError = new StandardErrorFile();
+        $chat = new RecordingChannel();
+        $messaging = new RecordingChannel();
+        $mail = new RecordingChannel();
+
+        new ChannelChain(['chat' => $chat, 'messaging' => $messaging, 'mail' => $mail], $standardError->channel())->send($this->delivery(), after: 'messaging');
+
+        self::assertSame([], $chat->deliveries);
+        self::assertSame([], $messaging->deliveries);
+        self::assertCount(1, $mail->deliveries);
+    }
+
+    public function testAReminderAfterTheLastChannelReachesStandardError(): void
+    {
+        $standardError = new StandardErrorFile();
+        $mail = new RecordingChannel();
+
+        new ChannelChain(['mail' => $mail], $standardError->channel())->send($this->delivery(), after: 'mail');
+
+        self::assertSame([], $mail->deliveries);
+        self::assertCount(1, $standardError->lines());
+    }
+
     private function delivery(): Delivery
     {
         return new Delivery('shop-prod', new Alert(Severity::Error, 'http', 'Failure', []), new \DateTimeImmutable());
