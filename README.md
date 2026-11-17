@@ -197,6 +197,10 @@ Run `mulertech:alerting:test --probe-only` at each deployment: a new container m
 directory, or reach another Redis, and the probe sees it. Every test alert reaches a person, and a
 text message is paid for: test alerts at each deployment end up unread.
 
+Run the probe last, once the worker of the new release consumes: a worker that has not started
+yet answers nothing, the command fails, and a deployment that stops at the first error stops there
+with nothing broken.
+
 The absences are checked after web responses, at most once per `interval`. With no visit, nothing
 is checked: schedule `mulertech:alerting:check` outside the application (a systemd timer, a cron)
 to cover the nights.

@@ -55,6 +55,21 @@ final class ThrowableAlertFactoryTest extends TestCase
         );
     }
 
+    public function testAWindowsPathIsMadeRelativeWhicheverItsSeparator(): void
+    {
+        $factory = new ThrowableAlertFactory(new DependencyClassifier(), 'D:/app');
+        $alert = $factory->create('http', Severity::Error, 'Request', $this->thrownAt('D:\\app\\src\\Cart.php', 42, new \RuntimeException('Failure')));
+
+        self::assertSame('src\\Cart.php:42', $alert->context['at']);
+    }
+
+    public function testADirectoryNamedLikeTheProjectIsNoPartOfIt(): void
+    {
+        $alert = $this->factory()->create('http', Severity::Error, 'Request', $this->thrownAt('/srv/app-old/src/Cart.php', 42, new \RuntimeException('Failure')));
+
+        self::assertSame('/srv/app-old/src/Cart.php:42', $alert->context['at']);
+    }
+
     public function testAFileOutsideTheProjectKeepsItsFullPath(): void
     {
         $alert = $this->factory()->create('http', Severity::Error, 'Request', $this->thrownAt('/usr/share/php/Lib.php', 7, new \RuntimeException('Failure')));

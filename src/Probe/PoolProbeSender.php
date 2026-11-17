@@ -30,17 +30,18 @@ final readonly class PoolProbeSender
     public function probe(): bool
     {
         $token = bin2hex(random_bytes(16));
-        $this->ledger->write(PoolProbeHandler::TOKEN, $token);
+        $subject = PoolProbeHandler::subject($token);
+        $this->ledger->write($subject, PoolProbeHandler::SENT);
         $this->bus->dispatch(new PoolProbe($token), [new TransportNamesStamp([$this->transport])]);
 
         for ($waited = 0; $waited < $this->wait; ++$waited) {
-            if ($token === $this->ledger->read(PoolProbeHandler::REPLY)) {
+            if (PoolProbeHandler::ANSWERED === $this->ledger->read($subject)) {
                 return true;
             }
 
             $this->clock->sleep(1);
         }
 
-        return $token === $this->ledger->read(PoolProbeHandler::REPLY);
+        return PoolProbeHandler::ANSWERED === $this->ledger->read($subject);
     }
 }

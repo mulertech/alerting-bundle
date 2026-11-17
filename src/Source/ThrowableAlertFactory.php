@@ -56,8 +56,13 @@ final readonly class ThrowableAlertFactory
      */
     private function relative(string $file): string
     {
-        $prefix = rtrim($this->projectDir, '/\\').\DIRECTORY_SEPARATOR;
+        // On Windows, the project directory and the file may each be written with either separator.
+        $root = rtrim(strtr($this->projectDir, '\\', '/'), '/').'/';
 
-        return str_starts_with($file, $prefix) ? substr($file, \strlen($prefix)) : $file;
+        if ('/' !== $root && str_starts_with(strtr($file, '\\', '/'), $root)) {
+            return substr($file, \strlen($root));
+        }
+
+        return $file;
     }
 }

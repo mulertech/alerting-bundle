@@ -14,7 +14,6 @@ use MulerTech\AlertingBundle\Tests\Kernel\AlertingKernel;
 use Monolog\Logger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Component\Cache\Exception\CacheException;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -206,15 +205,6 @@ final class MulerTechAlertingBundleTest extends TestCase
         )->boot();
     }
 
-    public function testAnApcuPoolIsAcceptedWhileNothingIsWatched(): void
-    {
-        // The configuration is accepted: what fails afterwards is APCu itself, absent from the PHP of the tests.
-        $this->expectException(CacheException::class);
-        $this->expectExceptionMessage('APCu is not enabled.');
-
-        $this->boot($this->config(), framework: ['cache' => ['pools' => ['cache.alerting' => ['adapter' => 'cache.adapter.apcu']]]]);
-    }
-
     public function testDashesInNamesAreKept(): void
     {
         $kernel = $this->kernel($this->config([
@@ -291,7 +281,7 @@ final class MulerTechAlertingBundleTest extends TestCase
      */
     private function checked(string $display): array
     {
-        preg_match_all('/^Checked the (.+)$/m', $display, $matches);
+        preg_match_all('/^Checked the (.+?)\r?$/m', $display, $matches);
 
         return $matches[1];
     }

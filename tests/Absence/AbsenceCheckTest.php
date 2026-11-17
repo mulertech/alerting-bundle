@@ -46,7 +46,7 @@ final class AbsenceCheckTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $tester->getStatusCode());
         self::assertSame(1, $watch->checks);
-        self::assertSame("Checked the worker heartbeat of \"async\"\n", $tester->getDisplay());
+        self::assertSame('Checked the worker heartbeat of "async"'.\PHP_EOL, $tester->getDisplay());
     }
 
     public function testItRunsAfterTheResponse(): void

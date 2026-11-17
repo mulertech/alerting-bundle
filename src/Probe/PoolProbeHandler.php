@@ -13,12 +13,15 @@ use MulerTech\AlertingBundle\Alerter;
  * Runs in the worker. A token missing from its pool proves that the pool is not the one the
  * command wrote to: the worker says so itself, since the command cannot read the worker's pool.
  * A token found is answered through the pool, where the command waits for it.
+ *
+ * Each token keeps an entry of its own: a probe the worker handles late, after a later run of the
+ * command, still finds its token, and is no proof of a pool apart.
  */
 final readonly class PoolProbeHandler
 {
-    public const string TOKEN = 'probe.token';
+    public const string SENT = 'sent';
 
-    public const string REPLY = 'probe.reply';
+    public const string ANSWERED = 'answered';
 
     public function __construct(
         private Ledger $ledger,
@@ -29,8 +32,8 @@ final readonly class PoolProbeHandler
 
     public function __invoke(PoolProbe $probe): void
     {
-        if ($probe->token === $this->ledger->read(self::TOKEN)) {
-            $this->ledger->write(self::REPLY, $probe->token);
+        if (null !== $this->ledger->read(self::subject($probe->token))) {
+            $this->ledger->write(self::subject($probe->token), self::ANSWERED);
 
             return;
         }
@@ -45,5 +48,10 @@ final readonly class PoolProbeHandler
             ['probe'],
             ['pool' => $this->pool],
         ));
+    }
+
+    public static function subject(string $token): string
+    {
+        return 'probe.'.$token;
     }
 }

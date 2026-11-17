@@ -13,11 +13,16 @@ use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /**
  * An application of its own for each configuration under test, with the framework, Monolog and the
  * bundle, and a mail and a Notifier transport that send nothing.
+ *
+ * It fails on demand: `/failure` throws, `/unavailable` answers 503 with no exception, `app:fail`
+ * throws, and every `\ArrayObject` message fails in its handler.
  */
 final class AlertingKernel extends Kernel
 {
@@ -91,6 +96,22 @@ final class AlertingKernel extends Kernel
         });
     }
 
+    public function failure(): never
+    {
+        throw new \RuntimeException('The basket could not be priced');
+    }
+
+    public function unavailable(): Response
+    {
+        return new Response('', Response::HTTP_SERVICE_UNAVAILABLE);
+    }
+
+    protected function configureRoutes(RoutingConfigurator $routes): void
+    {
+        $routes->add('failure', '/failure')->controller([$this, 'failure']);
+        $routes->add('unavailable', '/unavailable')->controller([$this, 'unavailable']);
+    }
+
     protected function configureContainer(ContainerConfigurator $container, LoaderInterface $loader, ContainerBuilder $builder): void
     {
         $container->extension('framework', array_replace_recursive([
@@ -112,6 +133,9 @@ final class AlertingKernel extends Kernel
         }
 
         $container->extension('mulertech_alerting', $this->alerting);
+
+        $builder->register('app.failing_command', FailingCommand::class)->addTag('console.command', ['command' => 'app:fail']);
+        $builder->register('app.failing_handler', FailingHandler::class)->addTag('messenger.message_handler', ['handles' => \ArrayObject::class]);
 
         foreach ($this->services as $register) {
             $register($builder);

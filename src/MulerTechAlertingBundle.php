@@ -298,6 +298,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
     private function loadMailChannel(ServicesConfigurator $services, string $id, string $name, array $channel, int $timeout): void
     {
         if (!class_exists(MailerTransport::class)) {
+            // Out of reach of the suite, which installs every optional component.
             throw new InvalidConfigurationException(\sprintf('The mail channel "%s" of mulertech_alerting needs symfony/mailer. Run "composer require symfony/mailer".', $name));
         }
 
@@ -327,6 +328,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
     private function loadNotifierChannel(ServicesConfigurator $services, string $id, string $name, array $channel, int $timeout): void
     {
         if (!class_exists(NotifierTransport::class)) {
+            // Out of reach of the suite, which installs every optional component.
             throw new InvalidConfigurationException(\sprintf('The Notifier channel "%s" of mulertech_alerting needs symfony/notifier. Run "composer require symfony/notifier".', $name));
         }
 
@@ -408,6 +410,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
             self::requireMessenger('absence.schedule');
 
             if (!class_exists(ScheduledStamp::class)) {
+                // Out of reach of the suite, which installs every optional component.
                 throw new InvalidConfigurationException('mulertech_alerting.absence.schedule needs symfony/scheduler. Run "composer require symfony/scheduler".');
             }
 
@@ -449,6 +452,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
     private static function requireMessenger(string $key): void
     {
         if (!class_exists(Worker::class)) {
+            // Out of reach of the suite, which installs every optional component.
             throw new InvalidConfigurationException(\sprintf('mulertech_alerting.%s needs symfony/messenger. Run "composer require symfony/messenger".', $key));
         }
     }

@@ -75,6 +75,22 @@ final class PoolProbeTest extends TestCase
         self::assertTrue(new PoolProbeSender($kit->ledger, $bus, $clock, 'async', 30)->probe());
     }
 
+    public function testAProbeHandledAfterALaterRunIsNoFalseAlert(): void
+    {
+        $kit = new AlertingKit();
+        $stoppedWorker = $this->bus(null);
+
+        self::assertFalse(new PoolProbeSender($kit->ledger, $stoppedWorker, $kit->clock, 'async', 30)->probe());
+        $late = $stoppedWorker->probe;
+        \assert($late instanceof PoolProbe);
+
+        $handler = new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting');
+        self::assertTrue(new PoolProbeSender($kit->ledger, $this->bus($handler), $kit->clock, 'async', 30)->probe());
+        $handler($late);
+
+        self::assertSame([], $kit->deliveries());
+    }
+
     public function testNoAnswerWithinTheWaitIsNoProof(): void
     {
         $kit = new AlertingKit();

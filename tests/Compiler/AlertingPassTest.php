@@ -7,6 +7,7 @@ namespace MulerTech\AlertingBundle\Tests\Compiler;
 use MulerTech\AlertingBundle\Compiler\AlertingPass;
 use MulerTech\AlertingBundle\Source\HttpExceptionSubscriber;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Cache\Adapter\ApcuAdapter;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -38,6 +39,16 @@ final class AlertingPassTest extends TestCase
             [new Reference('mulertech_alerting.chatter_transport_factory.0')],
             $container->getDefinition('mulertech_alerting.chatter_transport_factory')->getArgument(0),
         );
+    }
+
+    public function testAnApcuPoolIsAcceptedWhileNothingIsWatched(): void
+    {
+        $container = $this->container(withClient: true);
+        $container->register('cache.alerting', ApcuAdapter::class);
+
+        new AlertingPass()->process($container);
+
+        self::assertFalse($container->hasParameter('mulertech_alerting.config'));
     }
 
     public function testWithoutHttpClientTheFactoriesKeepTheirOwn(): void
