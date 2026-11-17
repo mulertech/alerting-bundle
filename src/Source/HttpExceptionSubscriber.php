@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Source;
 
+use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Alerter;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
 
@@ -18,6 +20,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * It runs just above Symfony's own logging (priority 0), so that it sees what Symfony logs and
  * nothing a listener above turned into a response, and claims every exception, reported or not.
  *
+ * A 5xx response built without an exception reaching this listener is reported too: a controller
+ * that caught a failure and answered 503 itself, or a listener above this one that turned an
+ * exception into a response without logging it, would otherwise fail in silence.
+ *
  * The context carries the method, the path and the route. Never the query string, which carries
  * tokens (password reset, email verification), nor the user or the address: the alert leaves for
  * a third party.
@@ -25,6 +31,12 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final readonly class HttpExceptionSubscriber implements EventSubscriberInterface
 {
     public const string OWNER = 'http';
+
+    /**
+     * Set on a request whose exception reached this listener, so that its error response is not
+     * reported a second time.
+     */
+    private const string SEEN = '_mulertech_alerting_exception_seen';
 
     /**
      * @param list<int>          $clientErrors the 4xx to report
@@ -41,12 +53,16 @@ final readonly class HttpExceptionSubscriber implements EventSubscriberInterface
 
     public static function getSubscribedEvents(): array
     {
-        return [KernelEvents::EXCEPTION => ['onException', 1]];
+        return [
+            KernelEvents::EXCEPTION => ['onException', 1],
+            KernelEvents::RESPONSE => ['onResponse', -1024],
+        ];
     }
 
     public function onException(ExceptionEvent $event): void
     {
         $throwable = $event->getThrowable();
+        $event->getRequest()->attributes->set(self::SEEN, true);
 
         if (!$this->claims->claim($throwable, self::OWNER)) {
             return;
@@ -73,6 +89,27 @@ final readonly class HttpExceptionSubscriber implements EventSubscriberInterface
                 'route' => \is_string($route) ? $route : null,
             ],
             [(string) $status],
+        ));
+    }
+
+    public function onResponse(ResponseEvent $event): void
+    {
+        $request = $event->getRequest();
+        $status = $event->getResponse()->getStatusCode();
+
+        if (!$event->isMainRequest() || $status < 500 || $request->attributes->has(self::SEEN)) {
+            return;
+        }
+
+        $route = $request->attributes->get('_route');
+        $route = \is_string($route) ? $route : null;
+
+        $this->alerter->alert(new Alert(
+            Severity::Critical,
+            'http',
+            \sprintf('Request %s %s answered %d with no exception: the code that built this response caught the failure without reporting it.', $request->getMethod(), $request->getPathInfo(), $status),
+            ['response', (string) $status, $route ?? $request->getPathInfo()],
+            ['status' => $status, 'method' => $request->getMethod(), 'path' => $request->getPathInfo(), 'route' => $route],
         ));
     }
 

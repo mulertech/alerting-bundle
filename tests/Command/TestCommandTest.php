@@ -86,6 +86,67 @@ final class TestCommandTest extends TestCase
         self::assertStringContainsString('Refused the test alert: pool probe.', $tester->getDisplay());
     }
 
+    public function testChosenChannelsAloneReceiveATestAlert(): void
+    {
+        $messaging = new RecordingChannel();
+        $mail = new RecordingChannel();
+        $standardError = new StandardErrorFile();
+        $kit = new AlertingKit();
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(null), $kit->clock, 'async', 5);
+
+        $tester = $this->tester(['messaging' => $messaging, 'mail' => $mail], $standardError, $probe, ['--channel' => ['mail']]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertCount(0, $messaging->deliveries);
+        self::assertCount(1, $mail->deliveries);
+        self::assertSame([], $standardError->lines());
+        self::assertStringNotContainsString('pool probe', $tester->getDisplay());
+    }
+
+    public function testAnUnknownChannelIsRefusedWithTheDeclaredOnes(): void
+    {
+        $mail = new RecordingChannel();
+
+        $tester = $this->tester(['messaging' => new RecordingChannel(), 'mail' => $mail], new StandardErrorFile(), input: ['--channel' => ['mail', 'sms']]);
+
+        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertCount(0, $mail->deliveries);
+        self::assertStringContainsString('Unknown channel: sms. Declared: messaging, mail.', $tester->getDisplay());
+    }
+
+    public function testTheProbeAloneSendsNoTestAlert(): void
+    {
+        $mail = new RecordingChannel();
+        $standardError = new StandardErrorFile();
+        $kit = new AlertingKit();
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+
+        $tester = $this->tester(['mail' => $mail], $standardError, $probe, ['--probe-only' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertCount(0, $mail->deliveries);
+        self::assertSame([], $standardError->lines());
+        self::assertStringContainsString('The worker shares the cache pool of the alerting.', $tester->getDisplay());
+    }
+
+    public function testTheProbeAloneNeedsTheWorkerWatched(): void
+    {
+        $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), input: ['--probe-only' => true]);
+
+        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertStringContainsString('--probe-only needs the worker to be watched', $tester->getDisplay());
+    }
+
+    public function testTheProbeAloneAndChosenChannelsExcludeEachOther(): void
+    {
+        $mail = new RecordingChannel();
+
+        $tester = $this->tester(['mail' => $mail], new StandardErrorFile(), input: ['--probe-only' => true, '--channel' => ['mail']]);
+
+        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertCount(0, $mail->deliveries);
+    }
+
     private function bus(?PoolProbeHandler $worker): MessageBusInterface
     {
         return new class($worker) implements MessageBusInterface {
@@ -106,11 +167,12 @@ final class TestCommandTest extends TestCase
 
     /**
      * @param array<string, ChannelInterface> $channels
+     * @param array<string, mixed>            $input
      */
-    private function tester(array $channels, StandardErrorFile $standardError, ?PoolProbeSender $probe = null): CommandTester
+    private function tester(array $channels, StandardErrorFile $standardError, ?PoolProbeSender $probe = null, array $input = []): CommandTester
     {
         $tester = new CommandTester(new TestCommand('shop-prod', $channels, $standardError->channel(), new MockClock(), $probe));
-        $tester->execute([]);
+        $tester->execute($input);
 
         return $tester;
     }
