@@ -75,6 +75,21 @@ final class TextFormatterTest extends TestCase
         );
     }
 
+    public function testASingleOccurrenceHeldBackIsSaidInTheSingular(): void
+    {
+        $delivery = new Delivery(
+            'shop-prod',
+            new Alert(Severity::Error, 'http', 'Uncaught RuntimeException', []),
+            new \DateTimeImmutable('2026-11-16 10:00:00', new \DateTimeZone('UTC')),
+            1,
+        );
+
+        self::assertStringContainsString(
+            "\n\nOne more occurrence of this fault was held back since the previous alert.",
+            new TextFormatter()->body($delivery),
+        );
+    }
+
     private function delivery(Severity $severity, string $summary): Delivery
     {
         return new Delivery(

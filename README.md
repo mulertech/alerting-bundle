@@ -57,6 +57,9 @@ return [
 ];
 ```
 
+Its configuration goes under `when@prod` likewise: in any other environment, no extension reads the
+`mulertech_alerting` key, and the kernel refuses to boot.
+
 Nothing to add to `monolog.yaml`: the bundle registers its log handler itself.
 
 ## Usage
@@ -129,6 +132,10 @@ The mail and Notifier channels send through transports of their own, built from 
 never through the `mailer`, `chatter` or `texter` services: those hand their messages to Messenger
 when the application routes them there, and the queue often lives in the database whose failure
 the alert reports. Each channel waits no longer than `timeout` seconds (10 by default).
+
+The channels are built when the kernel boots, `cache:clear` included: every variable they read must
+exist wherever the cache is warmed, the build of an image included. One missing stops the boot and
+names it, rather than leaving the application without alerts.
 
 ### A channel of the application
 

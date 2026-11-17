@@ -45,7 +45,9 @@ final readonly class TextFormatter
         }
 
         if ($delivery->suppressed > 0) {
-            $sections[] = \sprintf('%d more occurrences of this fault were held back since the previous alert.', $delivery->suppressed);
+            $sections[] = 1 === $delivery->suppressed
+                ? 'One more occurrence of this fault was held back since the previous alert.'
+                : \sprintf('%d more occurrences of this fault were held back since the previous alert.', $delivery->suppressed);
         }
 
         if ([] !== $delivery->incidents) {
