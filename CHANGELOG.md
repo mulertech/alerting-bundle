@@ -1,5 +1,12 @@
 # Release notes for alerting-bundle
 
+## v1.0.1 - 2026-11-18
+
+### Fixed
+
+- A console command or a request no longer builds the alerter when it meets no fault. Every source and watch now holds the alerter deferred, built at the first alert: the name of the application, the channels and the pool are read only then. A command run without the runtime's variables — an image build with `cache:warmup`, `assets:install`, `importmap:install` — no longer fails at its end on "Environment variable not found".
+- An alerter that cannot be built at the first alert leaves that alert in the PHP error log, with the cause, and the caller goes on.
+
 ## v1.0.0 - 2026-11-18
 
 First release: a Symfony bundle that reports whatever malfunctions in an application, over channels tried in order.
@@ -45,6 +52,7 @@ First release: a Symfony bundle that reports whatever malfunctions in an applica
 
 ```bash
 composer require mulertech/alerting-bundle
+
 
 ```
 Register the bundle for production only, then declare a cache pool shared by every process and at least one channel — see the [README](https://github.com/mulertech/alerting-bundle#readme).
