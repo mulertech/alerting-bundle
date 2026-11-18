@@ -1,5 +1,13 @@
 # Release notes for alerting-bundle
 
+## v1.1.0 - 2026-11-18
+
+### What's changed
+
+- `mulertech:alerting:test --probe-only` runs without the worker watched: it builds every channel and names the secret one of them lacks, and probes the worker only when `absence.worker` is declared.
+- An e-mail address in an alert keeps its domain alone (`***@example.com`), in the summary and in every context value. A mail server refusing a recipient names it, and so does an application logging the address it failed to write to: the address of a user no longer leaves with the alert.
+- The values a database quotes when it refuses a row or a value are masked, for PostgreSQL, MySQL and MariaDB: `Key (phone)=(***) already exists.`, `Failing row contains (***).`, `invalid input syntax for type integer: "***"`, `Duplicate entry '***' for key …`, `Incorrect integer value: '***' for column …`. The constraint, the table, the columns and the type stay: they name the cause.
+
 ## v1.0.3 - 2026-11-18
 
 ### Changed
@@ -62,6 +70,7 @@ First release: a Symfony bundle that reports whatever malfunctions in an applica
 
 ```bash
 composer require mulertech/alerting-bundle
+
 
 
 
