@@ -49,7 +49,7 @@ final class TestCommand extends Command
     {
         $this
             ->addOption('channel', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Tries only this channel; repeat the option for several')
-            ->addOption('probe-only', null, InputOption::VALUE_NONE, 'Sends no test alert: builds every channel, and proves that the worker shares the cache pool of the alerting');
+            ->addOption('probe-only', null, InputOption::VALUE_NONE, 'Sends no test alert: builds every channel and, when the worker is watched, proves that it shares the cache pool of the alerting');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -61,10 +61,6 @@ final class TestCommand extends Command
 
         if ($probeOnly && [] !== $chosen) {
             throw new InvalidOptionException('--probe-only sends no test alert, and --channel chooses which channels receive one: give one option or the other.');
-        }
-
-        if ($probeOnly && null === $this->probe) {
-            throw new InvalidOptionException('--probe-only needs the worker to be watched: declare mulertech_alerting.absence.worker.');
         }
 
         $unknown = array_diff($chosen, array_keys($this->channels));
@@ -95,7 +91,11 @@ final class TestCommand extends Command
             throw new \RuntimeException(\sprintf('%s %s', $probeOnly ? 'The deployment check failed.' : 'The test alert was refused.', implode(' ', array_map(static fn (string $name, string $reason): string => \sprintf('[%s] %s', $name, $reason), array_keys($failures), $failures))));
         }
 
-        $io->success($probeOnly ? 'Every channel is built, and the worker shares the cache pool of the alerting.' : 'Every channel tried accepted the test alert. Check that each one arrived.');
+        $io->success(match (true) {
+            !$probeOnly => 'Every channel tried accepted the test alert. Check that each one arrived.',
+            null === $this->probe => 'Every channel is built.',
+            default => 'Every channel is built, and the worker shares the cache pool of the alerting.',
+        });
 
         return Command::SUCCESS;
     }

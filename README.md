@@ -34,6 +34,11 @@ mail account of the application is not blocked for mass sending, with the mails 
 
 An alert carries the application, the cause and where it happened. Never the connected user, the IP
 address, nor the query string of a request, which carries tokens: the alert leaves for a third party.
+An e-mail address met in a message or a log context keeps its domain alone: a mail server that
+refuses a recipient names it, and so does an application logging the address it failed to write to.
+The values a database quotes when it refuses a row or a value (`Key (phone)=(***) already exists`,
+`invalid input syntax for type integer: "***"`) are masked
+likewise, while the constraint, the table and the columns stay: they name the cause.
 
 ## Requirements
 
@@ -229,7 +234,8 @@ watched, the command also proves that the worker reads the pool the web writes; 
 not sends an alert saying so.
 
 Run `mulertech:alerting:test --probe-only` at each deployment: a new container may lack a secret a
-channel reads, mount another directory, or reach another Redis, and the command sees it. Every test
+channel reads, mount another directory, or reach another Redis, and the command sees it. It builds
+the channels whether the worker is watched or not, and probes the worker only when it is. Every test
 alert reaches a person, and a text message is paid for: test alerts at each deployment end up
 unread.
 

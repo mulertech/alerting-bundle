@@ -152,12 +152,23 @@ final class TestCommandTest extends TestCase
         self::assertStringContainsString('✘ mail cannot be built: RuntimeException: Environment variable not found: "MAILER_DSN_FILE".', $tester->getDisplay());
     }
 
-    public function testTheProbeAloneNeedsTheWorkerWatched(): void
+    /**
+     * A deployment check is worth running without the worker watched: it still names the secret a
+     * channel lacks.
+     */
+    public function testWithoutTheWorkerWatchedTheProbeAloneBuildsTheChannels(): void
     {
-        [, $failure] = $this->failing(['mail' => new RecordingChannel()], new StandardErrorFile(), input: ['--probe-only' => true]);
+        $mail = new RecordingChannel();
+        $standardError = new StandardErrorFile();
 
-        self::assertInstanceOf(InvalidOptionException::class, $failure);
-        self::assertSame('--probe-only needs the worker to be watched: declare mulertech_alerting.absence.worker.', $failure->getMessage());
+        $tester = $this->tester(['mail' => $mail], $standardError, input: ['--probe-only' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertCount(0, $mail->deliveries);
+        self::assertSame([], $standardError->lines());
+        self::assertStringContainsString('✔ mail is built', $tester->getDisplay());
+        self::assertStringContainsString('[OK] Every channel is built.', $tester->getDisplay());
+        self::assertStringNotContainsString('worker', $tester->getDisplay());
     }
 
     public function testTheProbeAloneAndChosenChannelsExcludeEachOther(): void
