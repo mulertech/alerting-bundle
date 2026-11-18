@@ -20,18 +20,19 @@
     ],
     "require": {
         "php": "^8.4",
+        "monolog/monolog": "^3.0",
         "psr/cache": "^2.0 || ^3.0",
         "symfony/clock": "^7.0 || ^8.0",
         "symfony/config": "^7.0 || ^8.0",
         "symfony/dependency-injection": "^7.0 || ^8.0",
         "symfony/event-dispatcher": "^7.0 || ^8.0",
         "symfony/http-kernel": "^7.0 || ^8.0",
+        "symfony/monolog-bundle": "^3.10 || ^4.0",
         "symfony/polyfill-mbstring": "^1.0",
         "symfony/service-contracts": "^3.0"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.0",
-        "monolog/monolog": "^3.0",
         "mulertech/docker-dev": "^3.2",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^12.0",
@@ -42,7 +43,6 @@
         "symfony/http-client": "^7.0 || ^8.0",
         "symfony/mailer": "^7.0 || ^8.0",
         "symfony/messenger": "^7.0 || ^8.0",
-        "symfony/monolog-bundle": "^3.10 || ^4.0",
         "symfony/notifier": "^7.0 || ^8.0",
         "symfony/scheduler": "^7.0 || ^8.0",
         "symfony/yaml": "^7.0 || ^8.0"

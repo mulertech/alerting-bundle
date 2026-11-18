@@ -182,7 +182,7 @@ final class MulerTechAlertingBundleTest extends TestCase
 
     public function testMonologIsRequired(): void
     {
-        $this->expectRefusal('mulertech_alerting needs symfony/monolog-bundle');
+        $this->expectRefusal('mulertech_alerting needs MonologBundle registered: the errors the application logs, PHP fatal errors and warnings reach the alerting through Monolog alone. Add Symfony\\Bundle\\MonologBundle\\MonologBundle::class => [\'all\' => true] to config/bundles.php.');
 
         $this->kernel($this->config(), monolog: false)->boot();
     }

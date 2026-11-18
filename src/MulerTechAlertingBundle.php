@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle;
 
-use Monolog\Handler\AbstractProcessingHandler;
 use MulerTech\AlertingBundle\Absence\AbsenceCheck;
 use MulerTech\AlertingBundle\Absence\CheckOnTerminate;
 use MulerTech\AlertingBundle\Absence\FailureQueueWatch;
@@ -197,8 +196,8 @@ final class MulerTechAlertingBundle extends AbstractBundle
         $bundles = $builder->hasParameter('kernel.bundles') ? $builder->getParameter('kernel.bundles') : [];
 
         // The builder given here knows this extension alone, so Monolog is looked for among the bundles.
-        if (!\is_array($bundles) || !\in_array(MonologBundle::class, $bundles, true) || !class_exists(AbstractProcessingHandler::class)) {
-            throw new InvalidConfigurationException('mulertech_alerting needs symfony/monolog-bundle: the errors the application logs, PHP fatal errors and warnings reach the alerting through Monolog alone. Run "composer require symfony/monolog-bundle".');
+        if (!\is_array($bundles) || !\in_array(MonologBundle::class, $bundles, true)) {
+            throw new InvalidConfigurationException(\sprintf('mulertech_alerting needs MonologBundle registered: the errors the application logs, PHP fatal errors and warnings reach the alerting through Monolog alone. Add %s::class => [\'all\' => true] to config/bundles.php.', MonologBundle::class));
         }
 
         $services = $container->services();
