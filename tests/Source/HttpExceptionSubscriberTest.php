@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Tests\Source;
 
 use MulerTech\AlertingBundle\Alert\Severity;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Source\HttpExceptionSubscriber;
 use MulerTech\AlertingBundle\Tests\Double\AlertingKit;
 use PHPUnit\Framework\TestCase;
@@ -138,6 +139,17 @@ final class HttpExceptionSubscriberTest extends TestCase
         $subscriber->onResponse($this->response($event->getRequest(), 500));
 
         self::assertCount(1, $kit->deliveries());
+    }
+
+    public function testTheErrorResponseOfARequestThatAlreadyRaisedAnAlertIsNotReportedAgain(): void
+    {
+        $kit = new AlertingKit();
+        $request = Request::create('/api/messaging/send', 'POST');
+        $request->attributes->set(DeferredAlerter::REQUEST_REPORTED, true);
+
+        $this->subscriber($kit)->onResponse($this->response($request, 503));
+
+        self::assertSame([], $kit->deliveries());
     }
 
     public function testTheErrorResponseOfAnExceptionAnotherPathOwnsIsNotReported(): void

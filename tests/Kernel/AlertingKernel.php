@@ -129,6 +129,7 @@ final class AlertingKernel extends Kernel
     {
         $routes->add('failure', '/failure')->controller([$this, 'failure']);
         $routes->add('unavailable', '/unavailable')->controller([$this, 'unavailable']);
+        $routes->add('reported', '/reported')->controller('app.reporting_controller');
     }
 
     protected function configureContainer(ContainerConfigurator $container, LoaderInterface $loader, ContainerBuilder $builder): void
@@ -154,6 +155,10 @@ final class AlertingKernel extends Kernel
         $container->extension('mulertech_alerting', $this->alerting);
 
         $builder->register('app.failing_command', FailingCommand::class)->addTag('console.command', ['command' => 'app:fail']);
+        $builder->register('app.reporting_controller', ReportingController::class)
+            ->setAutowired(true)
+            ->setPublic(true)
+            ->addTag('controller.service_arguments');
         $builder->register('app.failing_handler', FailingHandler::class)->addTag('messenger.message_handler', ['handles' => \ArrayObject::class]);
 
         foreach ($this->services as $register) {

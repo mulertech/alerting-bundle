@@ -22,7 +22,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
  *
  * A 5xx response built without an exception reaching this listener is reported too: a controller
  * that caught a failure and answered 503 itself, or a listener above this one that turned an
- * exception into a response without logging it, would otherwise fail in silence.
+ * exception into a response without logging it, would otherwise fail in silence. Unless the
+ * request already raised an alert: the code that logged its failure before answering has reported
+ * it, with its cause.
  *
  * The context carries the method, the path and the route. Never the query string, which carries
  * tokens (password reset, email verification), nor the user or the address: the alert leaves for
@@ -97,7 +99,7 @@ final readonly class HttpExceptionSubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $status = $event->getResponse()->getStatusCode();
 
-        if (!$event->isMainRequest() || $status < 500 || $request->attributes->has(self::SEEN)) {
+        if (!$event->isMainRequest() || $status < 500 || $request->attributes->has(self::SEEN) || $request->attributes->has(DeferredAlerter::REQUEST_REPORTED)) {
             return;
         }
 

@@ -261,7 +261,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
         // What every source and watch holds: built with them, at the end of every command and
         // every request, the alerter would read the variables a runtime alone provides.
         $services->set(self::PREFIX.'deferred_alerter', DeferredAlerter::class)
-            ->args([service_closure(self::PREFIX.'alerter')]);
+            ->args([service_closure(self::PREFIX.'alerter'), service('request_stack')->nullOnInvalid()]);
 
         $services->set(self::PREFIX.'ledger', Ledger::class)
             ->args([service($config['pool']), service('clock')]);

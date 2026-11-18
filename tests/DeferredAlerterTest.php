@@ -10,6 +10,8 @@ use MulerTech\AlertingBundle\Alerter;
 use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Tests\Double\AlertingKit;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class DeferredAlerterTest extends TestCase
 {
@@ -51,5 +53,27 @@ final class DeferredAlerterTest extends TestCase
         }
 
         self::assertStringContainsString('mulertech_alerting could not be built, so this alert reaches the error log only: Import of parkings.geojsonseq failed. Cause: RuntimeException: Environment variable not found: "ALERTING_APPLICATION".', $logged);
+    }
+
+    public function testAnAlertMarksTheRequestBeingHandled(): void
+    {
+        $kit = new AlertingKit();
+        $request = Request::create('/api/messaging/send', 'POST');
+        $requests = new RequestStack([$request]);
+
+        new DeferredAlerter(static fn (): Alerter => $kit->alerter, $requests)
+            ->alert(new Alert(Severity::Error, 'log', 'Message not stored', ['app']));
+
+        self::assertTrue($request->attributes->get(DeferredAlerter::REQUEST_REPORTED));
+    }
+
+    public function testAnAlertOutsideAnyRequestMarksNothing(): void
+    {
+        $kit = new AlertingKit();
+
+        new DeferredAlerter(static fn (): Alerter => $kit->alerter, new RequestStack())
+            ->alert(new Alert(Severity::Error, 'log', 'Export failed', ['app']));
+
+        self::assertCount(1, $kit->deliveries());
     }
 }

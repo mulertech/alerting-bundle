@@ -82,6 +82,18 @@ final class OneFaultOneAlertTest extends TestCase
         self::assertSame('http', $this->only($kernel)->alert->source);
     }
 
+    public function testARequestLoggingItsFailureBeforeAnswering5xxIsOneAlertCarryingTheCause(): void
+    {
+        $kernel = $this->kernel();
+
+        $response = $kernel->handle(Request::create('/reported'));
+
+        self::assertSame(503, $response->getStatusCode());
+        $alert = $this->only($kernel)->alert;
+        self::assertSame('log', $alert->source);
+        self::assertStringContainsString('SQLSTATE[08006] connection refused', $alert->summary);
+    }
+
     public function testAnAbandonedMessageIsOneAlert(): void
     {
         $kernel = $this->kernel();

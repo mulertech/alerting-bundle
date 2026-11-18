@@ -14,7 +14,7 @@ Reports whatever malfunctions in a Symfony application, over channels tried in o
 
 | Signal | Reported when |
 |---|---|
-| A request | it ends on an exception answered 5xx, or a 4xx you declare; or it answers 5xx with no exception at all |
+| A request | it ends on an exception answered 5xx, or a 4xx you declare; or it answers 5xx with no exception at all, unless it already raised an alert (an error it logged before answering) |
 | A Messenger message | it is abandoned, never while it will be retried |
 | A command | it exits with a non-zero code, with or without an exception |
 | A log record | it is `error` or above and no source above owns its exception: what the application logs itself, PHP fatal errors, warnings and notices |
