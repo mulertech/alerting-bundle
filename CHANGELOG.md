@@ -1,5 +1,11 @@
 # Release notes for alerting-bundle
 
+## v1.0.3 - 2026-11-18
+
+### Changed
+
+- **Unread alerts are reminded every delay, not every window.** A channel implementing `ReadReceiptInterface` whose alerts stay unread past `absence.unread.delay` gets one reminder, then another each time the same delay has passed again while they stay unread. Until now the reminder was sent again every window (15 minutes by default), so a night of unread alerts filled the mailbox the reminder was meant to wake. The time of the last reminder is kept in the alerting pool, which www and the worker share.
+
 ## v1.0.2 - 2026-11-18
 
 A request that already raised an alert (an error logged before answering) no longer raises a second one when it answers 5xx without an exception.
@@ -56,6 +62,7 @@ First release: a Symfony bundle that reports whatever malfunctions in an applica
 
 ```bash
 composer require mulertech/alerting-bundle
+
 
 
 
