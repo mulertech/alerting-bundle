@@ -181,7 +181,8 @@ mulertech_alerting:
 bundle sends.
 
 A channel that knows whether its alerts were read implements `ReadReceiptInterface`: declare
-`absence.unread`, and alerts left unread past the delay are reminded through the channels after it.
+`absence.unread`, and alerts left unread past the delay are reminded through the channels after it,
+again every delay while they stay unread.
 
 ### Everything else
 

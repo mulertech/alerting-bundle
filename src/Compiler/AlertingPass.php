@@ -183,7 +183,7 @@ final class AlertingPass implements CompilerPassInterface
 
         foreach ($readReceipts as $name => $id) {
             $container->register(self::PREFIX.'watch.unread.'.$name, UnreadWatch::class)
-                ->setArguments([new Reference(self::PREFIX.'deferred_alerter'), new Reference('clock'), $name, new Reference($id), $unread['delay']])
+                ->setArguments([new Reference(self::PREFIX.'deferred_alerter'), new Reference(self::PREFIX.'ledger'), new Reference('clock'), $name, new Reference($id), $unread['delay']])
                 ->addTag(MulerTechAlertingBundle::WATCH_TAG);
         }
     }

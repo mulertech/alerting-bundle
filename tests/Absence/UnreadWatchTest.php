@@ -45,6 +45,23 @@ final class UnreadWatchTest extends TestCase
         self::assertSame('unread alerts of "messaging"', $this->watch($kit, $messaging)->name());
     }
 
+    public function testAReminderIsRepeatedEveryDelayRatherThanEveryWindow(): void
+    {
+        [$kit, $messaging, $mail] = $this->kit(new \DateTimeImmutable('2026-11-16 09:00:00+00:00'));
+        $watch = $this->watch($kit, $messaging);
+
+        $watch->check();
+        $kit->clock->sleep(3599);
+        $watch->check();
+
+        self::assertCount(1, $mail->deliveries, 'Past a window, but not past the delay: no second reminder.');
+
+        $kit->clock->sleep(1);
+        $watch->check();
+
+        self::assertCount(2, $mail->deliveries);
+    }
+
     /**
      * @return array{AlertingKit, ReadReceiptChannel, RecordingChannel}
      */
@@ -58,6 +75,6 @@ final class UnreadWatchTest extends TestCase
 
     private function watch(AlertingKit $kit, ReadReceiptChannel $channel): UnreadWatch
     {
-        return new UnreadWatch($kit->deferred, $kit->clock, 'messaging', $channel, 3600);
+        return new UnreadWatch($kit->deferred, $kit->ledger, $kit->clock, 'messaging', $channel, 3600);
     }
 }

@@ -12,13 +12,17 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Alerts accepted by a channel that knows whether they were read, and left unread past the declared
- * delay: the reminder goes through the channels after that one, again every window while they stay
- * unread.
+ * delay: the reminder goes through the channels after that one, and again every delay while they
+ * stay unread. Every window would be too often: a reminder reaches a person, often by mail, and one
+ * every fifteen minutes through a night buries the mailbox it is meant to wake.
+ *
+ * The time of the last reminder is kept in the ledger, shared by every process.
  */
 final readonly class UnreadWatch implements WatchInterface
 {
     public function __construct(
         private DeferredAlerter $alerter,
+        private Ledger $ledger,
         private ClockInterface $clock,
         private string $channelName,
         private ReadReceiptInterface $channel,
@@ -34,8 +38,16 @@ final readonly class UnreadWatch implements WatchInterface
     public function check(): void
     {
         $since = $this->channel->oldestUnreadSince();
+        $now = $this->clock->now()->getTimestamp();
 
-        if (null === $since || $this->clock->now()->getTimestamp() - $since->getTimestamp() < $this->delay) {
+        if (null === $since || $now - $since->getTimestamp() < $this->delay) {
+            return;
+        }
+
+        $subject = 'unread reminder '.$this->channelName;
+        $remindedAt = $this->ledger->seenAt($subject);
+
+        if (null !== $remindedAt && $now - $remindedAt < $this->delay) {
             return;
         }
 
@@ -46,5 +58,8 @@ final readonly class UnreadWatch implements WatchInterface
             [$this->channelName],
             ['channel' => $this->channelName, 'unread_since' => $since->format(\DATE_ATOM)],
         ), after: $this->channelName);
+
+        // After the reminder: a pool that refuses the record must not cost the reminder itself.
+        $this->ledger->record($subject);
     }
 }
