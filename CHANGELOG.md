@@ -1,5 +1,9 @@
 # Release notes for alerting-bundle
 
+## v1.0.2 - 2026-11-18
+
+A request that already raised an alert (an error logged before answering) no longer raises a second one when it answers 5xx without an exception.
+
 ## v1.0.1 - 2026-11-18
 
 ### Fixed
@@ -52,6 +56,7 @@ First release: a Symfony bundle that reports whatever malfunctions in an applica
 
 ```bash
 composer require mulertech/alerting-bundle
+
 
 
 ```
