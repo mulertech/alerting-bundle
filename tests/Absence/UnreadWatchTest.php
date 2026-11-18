@@ -58,6 +58,6 @@ final class UnreadWatchTest extends TestCase
 
     private function watch(AlertingKit $kit, ReadReceiptChannel $channel): UnreadWatch
     {
-        return new UnreadWatch($kit->alerter, $kit->clock, 'messaging', $channel, 3600);
+        return new UnreadWatch($kit->deferred, $kit->clock, 'messaging', $channel, 3600);
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Source\ThrowableAlertFactory;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -20,7 +20,7 @@ final readonly class ScheduledTaskRecorder implements EventSubscriberInterface
 {
     public function __construct(
         private Ledger $ledger,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ThrowableAlertFactory $factory,
     ) {
     }

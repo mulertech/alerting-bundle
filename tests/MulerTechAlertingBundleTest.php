@@ -17,10 +17,12 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\ApplicationTester;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 final class MulerTechAlertingBundleTest extends TestCase
@@ -109,7 +111,7 @@ final class MulerTechAlertingBundleTest extends TestCase
         $kernel->boot();
 
         // What a build runs: a console command, its events reaching the console source.
-        self::assertSame(Command::SUCCESS, $this->command($kernel, 'about')->getStatusCode());
+        self::assertSame(Command::SUCCESS, $this->console($kernel, 'about'));
 
         $logger = $kernel->getContainer()->get('test.service_container')->get('monolog.logger');
         \assert($logger instanceof Logger);
@@ -121,6 +123,28 @@ final class MulerTechAlertingBundleTest extends TestCase
         self::assertIsArray($alerts[0]['incidents']);
         self::assertStringContainsString('Channel "mail" refused the alert', (string) $alerts[0]['incidents'][0]);
         self::assertStringContainsString('ALERTING_ABSENT_DSN_FILE', (string) $alerts[0]['incidents'][0]);
+    }
+
+    /**
+     * An image build runs commands without the variables a runtime alone provides: the sources,
+     * built at the end of every command and every request, must not build the alerter for it.
+     */
+    public function testWithoutTheVariablesOfTheRuntimeCommandsAndRequestsEndNormally(): void
+    {
+        $kernel = $this->kernel($this->config([
+            'application' => '%env(ALERTING_ABSENT_APPLICATION)%',
+            'channels' => ['mail' => ['to' => ['%env(ALERTING_ABSENT_RECIPIENT)%']] + self::MAIL],
+            'absence' => ['worker' => ['transport' => 'async', 'silence' => 300]],
+        ]));
+        $kernel->boot();
+
+        self::assertSame(Command::SUCCESS, $this->console($kernel, 'about'));
+
+        $request = Request::create('/no-such-page');
+        $response = $kernel->handle($request);
+        $kernel->terminate($request, $response);
+
+        self::assertSame(404, $response->getStatusCode());
     }
 
     public function testTheStatusCodesOfTheFrameworkAreThoseTheAlertingJudgesBy(): void
@@ -306,6 +330,18 @@ final class MulerTechAlertingBundleTest extends TestCase
         \assert($container instanceof ContainerInterface);
 
         return $container;
+    }
+
+    /**
+     * Through the console application, so that its events fire as in production.
+     */
+    private function console(AlertingKernel $kernel, string $name): int
+    {
+        $application = new Application($kernel);
+        $application->setAutoExit(false);
+        $application->setCatchExceptions(false);
+
+        return new ApplicationTester($application)->run(['command' => $name]);
     }
 
     private function command(AlertingKernel $kernel, string $name): CommandTester

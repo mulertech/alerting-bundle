@@ -7,7 +7,7 @@ namespace MulerTech\AlertingBundle\Probe;
 use MulerTech\AlertingBundle\Absence\Ledger;
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 
 /**
  * Runs in the worker. A token missing from its pool proves that the pool is not the one the
@@ -25,7 +25,7 @@ final readonly class PoolProbeHandler
 
     public function __construct(
         private Ledger $ledger,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private string $pool,
     ) {
     }

@@ -6,8 +6,8 @@ namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
 use MulerTech\AlertingBundle\Channel\ReadReceiptInterface;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -18,7 +18,7 @@ use Psr\Clock\ClockInterface;
 final readonly class UnreadWatch implements WatchInterface
 {
     public function __construct(
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ClockInterface $clock,
         private string $channelName,
         private ReadReceiptInterface $channel,

@@ -23,7 +23,7 @@ final class PoolProbeTest extends TestCase
     public function testAWorkerSharingThePoolAnswersAndRaisesNothing(): void
     {
         $kit = new AlertingKit();
-        $bus = $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting'));
+        $bus = $this->bus(new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting'));
 
         self::assertTrue(new PoolProbeSender($kit->ledger, $bus, $kit->clock, 'async', 30)->probe());
         self::assertSame([], $kit->deliveries());
@@ -34,7 +34,7 @@ final class PoolProbeTest extends TestCase
     {
         $kit = new AlertingKit();
         $workerPool = new Ledger(new ArrayAdapter(), $kit->clock);
-        $bus = $this->bus(new PoolProbeHandler($workerPool, $kit->alerter, 'cache.alerting'));
+        $bus = $this->bus(new PoolProbeHandler($workerPool, $kit->deferred, 'cache.alerting'));
 
         self::assertFalse(new PoolProbeSender($kit->ledger, $bus, $kit->clock, 'async', 30)->probe());
 
@@ -47,7 +47,7 @@ final class PoolProbeTest extends TestCase
     public function testAnAnswerArrivingWhileTheCommandWaitsIsSeen(): void
     {
         $kit = new AlertingKit();
-        $handler = new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting');
+        $handler = new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting');
         $bus = $this->bus(null);
         $clock = new class($kit->clock, $bus, $handler) implements ClockInterface {
             public function __construct(private readonly MockClock $clock, private readonly object $bus, private readonly PoolProbeHandler $handler)
@@ -84,7 +84,7 @@ final class PoolProbeTest extends TestCase
         $late = $stoppedWorker->probe;
         \assert($late instanceof PoolProbe);
 
-        $handler = new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting');
+        $handler = new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting');
         self::assertTrue(new PoolProbeSender($kit->ledger, $this->bus($handler), $kit->clock, 'async', 30)->probe());
         $handler($late);
 

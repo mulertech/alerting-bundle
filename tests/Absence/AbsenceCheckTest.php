@@ -29,7 +29,7 @@ final class AbsenceCheckTest extends TestCase
         $broken = new ScriptedWatch('failure transport "failed"', new \RuntimeException('Connection refused'));
         $worker = new ScriptedWatch('worker heartbeat of "async"');
 
-        $names = new AbsenceCheck([$broken, $worker], $kit->alerter, $kit->factory)->run();
+        $names = new AbsenceCheck([$broken, $worker], $kit->deferred, $kit->factory)->run();
 
         self::assertSame(['failure transport "failed"', 'worker heartbeat of "async"'], $names);
         self::assertSame(1, $worker->checks);
@@ -40,7 +40,7 @@ final class AbsenceCheckTest extends TestCase
     {
         $kit = new AlertingKit();
         $watch = new ScriptedWatch('worker heartbeat of "async"');
-        $tester = new CommandTester(new CheckCommand(new AbsenceCheck([$watch], $kit->alerter, $kit->factory)));
+        $tester = new CommandTester(new CheckCommand(new AbsenceCheck([$watch], $kit->deferred, $kit->factory)));
 
         $tester->execute([]);
 
@@ -93,7 +93,7 @@ final class AbsenceCheckTest extends TestCase
 
     private function trigger(AlertingKit $kit, ScriptedWatch $watch, Ledger $ledger): CheckOnTerminate
     {
-        return new CheckOnTerminate(new AbsenceCheck([$watch], $kit->alerter, $kit->factory), $ledger, $kit->alerter, $kit->factory, $kit->clock, 60);
+        return new CheckOnTerminate(new AbsenceCheck([$watch], $kit->deferred, $kit->factory), $ledger, $kit->deferred, $kit->factory, $kit->clock, 60);
     }
 
     private function terminate(): TerminateEvent

@@ -56,7 +56,7 @@ final class WorkerHeartbeatTest extends TestCase
     public function testAHeartbeatThatCannotBeRecordedIsReported(): void
     {
         $kit = new AlertingKit();
-        $heartbeat = new WorkerHeartbeat(new Ledger(new FailingPool(), $kit->clock), $kit->alerter, $kit->factory, $kit->clock);
+        $heartbeat = new WorkerHeartbeat(new Ledger(new FailingPool(), $kit->clock), $kit->deferred, $kit->factory, $kit->clock);
 
         $heartbeat->onStarted(new WorkerStartedEvent($this->worker()));
 
@@ -109,12 +109,12 @@ final class WorkerHeartbeatTest extends TestCase
 
     private function heartbeat(AlertingKit $kit): WorkerHeartbeat
     {
-        return new WorkerHeartbeat($kit->ledger, $kit->alerter, $kit->factory, $kit->clock);
+        return new WorkerHeartbeat($kit->ledger, $kit->deferred, $kit->factory, $kit->clock);
     }
 
     private function watch(AlertingKit $kit): WorkerHeartbeatWatch
     {
-        return new WorkerHeartbeatWatch($kit->ledger, $kit->alerter, $kit->clock, 'async', 300, 'cache.alerting');
+        return new WorkerHeartbeatWatch($kit->ledger, $kit->deferred, $kit->clock, 'async', 300, 'cache.alerting');
     }
 
     private function worker(): Worker

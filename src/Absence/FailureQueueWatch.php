@@ -6,7 +6,7 @@ namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Messenger\Transport\Receiver\MessageCountAwareInterface;
 
@@ -18,7 +18,7 @@ final readonly class FailureQueueWatch implements WatchInterface
 {
     public function __construct(
         private ContainerInterface $receivers,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private string $transport,
         private int $threshold,
     ) {

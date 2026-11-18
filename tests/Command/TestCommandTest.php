@@ -67,7 +67,7 @@ final class TestCommandTest extends TestCase
     public function testAWorkerSharingThePoolPassesTheProbe(): void
     {
         $kit = new AlertingKit();
-        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting')), $kit->clock, 'async', 5);
 
         $tester = $this->tester(['mail' => new RecordingChannel()], new StandardErrorFile(), $probe);
 
@@ -119,7 +119,7 @@ final class TestCommandTest extends TestCase
         $mail = new RecordingChannel();
         $standardError = new StandardErrorFile();
         $kit = new AlertingKit();
-        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting')), $kit->clock, 'async', 5);
 
         $tester = $this->tester(['mail' => $mail], $standardError, $probe, ['--probe-only' => true]);
 
@@ -137,7 +137,7 @@ final class TestCommandTest extends TestCase
     public function testTheProbeAloneNamesAChannelThatCannotBeBuilt(): void
     {
         $kit = new AlertingKit();
-        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->alerter, 'cache.alerting')), $kit->clock, 'async', 5);
+        $probe = new PoolProbeSender($kit->ledger, $this->bus(new PoolProbeHandler($kit->ledger, $kit->deferred, 'cache.alerting')), $kit->clock, 'async', 5);
         $channels = ['mail' => static fn (): ChannelInterface => throw new \RuntimeException('Environment variable not found: "MAILER_DSN_FILE".')];
 
         $tester = new CommandTester(new TestCommand('shop-prod', $channels, new StandardErrorFile()->channel(), new MockClock(), $probe));

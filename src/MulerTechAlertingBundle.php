@@ -258,6 +258,11 @@ final class MulerTechAlertingBundle extends AbstractBundle
             ]);
         $services->alias(Alerter::class, self::PREFIX.'alerter');
 
+        // What every source and watch holds: built with them, at the end of every command and
+        // every request, the alerter would read the variables a runtime alone provides.
+        $services->set(self::PREFIX.'deferred_alerter', DeferredAlerter::class)
+            ->args([service_closure(self::PREFIX.'alerter')]);
+
         $services->set(self::PREFIX.'ledger', Ledger::class)
             ->args([service($config['pool']), service('clock')]);
 
@@ -355,7 +360,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
      */
     private function loadSources(ServicesConfigurator $services, array $config): void
     {
-        $sourceArgs = [service(self::PREFIX.'alerter'), service(self::PREFIX.'claims'), service(self::PREFIX.'alert_factory')];
+        $sourceArgs = [service(self::PREFIX.'deferred_alerter'), service(self::PREFIX.'claims'), service(self::PREFIX.'alert_factory')];
 
         $services->set(self::PREFIX.'claims', ThrowableClaims::class)->tag('kernel.reset', ['method' => 'reset']);
         $services->set(self::PREFIX.'dependency_classifier', DependencyClassifier::class)->args([$config['dependencies']]);
@@ -371,10 +376,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
             ->tag('kernel.event_subscriber')
             ->tag('kernel.reset', ['method' => 'reset']);
 
-        // Built with the logger, so with the kernel, a build included: the alerter waits for the first
-        // record to report.
-        $services->set(self::PREFIX.'monolog_handler', AlertingHandler::class)
-            ->args([service_closure(self::PREFIX.'alerter'), service(self::PREFIX.'claims'), service(self::PREFIX.'alert_factory')]);
+        $services->set(self::PREFIX.'monolog_handler', AlertingHandler::class)->args($sourceArgs);
 
         if (class_exists(Worker::class)) {
             $services->set(self::PREFIX.'source.messenger', MessengerFailureSubscriber::class)
@@ -389,7 +391,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
     private function loadAbsence(ServicesConfigurator $services, array $config, bool $hasWatches): void
     {
         $absence = $config['absence'];
-        $reporting = [service(self::PREFIX.'ledger'), service(self::PREFIX.'alerter'), service(self::PREFIX.'alert_factory')];
+        $reporting = [service(self::PREFIX.'ledger'), service(self::PREFIX.'deferred_alerter'), service(self::PREFIX.'alert_factory')];
 
         if (isset($absence['worker'])) {
             self::requireMessenger('absence.worker');
@@ -400,11 +402,11 @@ final class MulerTechAlertingBundle extends AbstractBundle
                 ->tag('kernel.event_subscriber');
 
             $services->set(self::PREFIX.'watch.worker', WorkerHeartbeatWatch::class)
-                ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'alerter'), service('clock'), $worker['transport'], $worker['silence'], $config['pool']])
+                ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'deferred_alerter'), service('clock'), $worker['transport'], $worker['silence'], $config['pool']])
                 ->tag(self::WATCH_TAG);
 
             $services->set(self::PREFIX.'probe_handler', PoolProbeHandler::class)
-                ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'alerter'), $config['pool']])
+                ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'deferred_alerter'), $config['pool']])
                 ->tag('messenger.message_handler', ['handles' => PoolProbe::class]);
 
             $services->set(self::PREFIX.'probe_sender', PoolProbeSender::class)
@@ -425,7 +427,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
 
             foreach ($absence['schedule'] as $task => $delay) {
                 $services->set(self::PREFIX.'watch.schedule.'.$task, ScheduledTaskWatch::class)
-                    ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'alerter'), service('clock'), (string) $task, $delay])
+                    ->args([service(self::PREFIX.'ledger'), service(self::PREFIX.'deferred_alerter'), service('clock'), (string) $task, $delay])
                     ->tag(self::WATCH_TAG);
             }
         }
@@ -434,7 +436,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
             self::requireMessenger('absence.failure_queue');
 
             $services->set(self::PREFIX.'watch.failure_queue', FailureQueueWatch::class)
-                ->args([service('messenger.receiver_locator'), service(self::PREFIX.'alerter'), $absence['failure_queue']['transport'], $absence['failure_queue']['threshold']])
+                ->args([service('messenger.receiver_locator'), service(self::PREFIX.'deferred_alerter'), $absence['failure_queue']['transport'], $absence['failure_queue']['threshold']])
                 ->tag(self::WATCH_TAG);
         }
 
@@ -443,7 +445,7 @@ final class MulerTechAlertingBundle extends AbstractBundle
         }
 
         $services->set(self::PREFIX.'absence_check', AbsenceCheck::class)
-            ->args([tagged_iterator(self::WATCH_TAG), service(self::PREFIX.'alerter'), service(self::PREFIX.'alert_factory')]);
+            ->args([tagged_iterator(self::WATCH_TAG), service(self::PREFIX.'deferred_alerter'), service(self::PREFIX.'alert_factory')]);
 
         $services->set(self::PREFIX.'check_on_terminate', CheckOnTerminate::class)
             ->args([service(self::PREFIX.'absence_check'), ...$reporting, service('clock'), $absence['interval']])

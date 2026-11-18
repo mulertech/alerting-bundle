@@ -158,8 +158,10 @@ the alert reports. Each channel waits no longer than `timeout` seconds (10 by de
 A channel is built when an alert first reaches it, never with the kernel: an image build boots
 the kernel without the secrets the runtime mounts, such as the file a DSN is read from. A channel
 that cannot be built refuses the alert like any other, naming the cause, and the next channel takes
-it. `mulertech:alerting:test --probe-only` builds every channel without sending anything: run at each
-deployment, it names a variable the deployment did not provide before an alert needs it.
+it. The alerter itself, with the name of the application and the pool, is built at the first alert
+too: a command or a request that meets no fault never reads them. `mulertech:alerting:test
+--probe-only` builds every channel without sending anything: run at each deployment, it names a
+variable the deployment did not provide before an alert needs it.
 
 ### A channel of the application
 

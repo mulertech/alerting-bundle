@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MulerTech\AlertingBundle\Tests\Double;
 
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Absence\Ledger;
 use MulerTech\AlertingBundle\Alert\Delivery;
 use MulerTech\AlertingBundle\Alerter;
@@ -41,6 +42,11 @@ final class AlertingKit
     public readonly Ledger $ledger;
 
     /**
+     * The alerter as sources and watches hold it.
+     */
+    public readonly DeferredAlerter $deferred;
+
+    /**
      * @param array<string, ChannelInterface> $channels replace the recording channel when given
      * @param array<string, string>           $dependencies
      */
@@ -62,6 +68,7 @@ final class AlertingKit
         $this->claims = new ThrowableClaims();
         $this->factory = new ThrowableAlertFactory(new DependencyClassifier($dependencies), self::PROJECT_DIR);
         $this->ledger = new Ledger($this->pool, $this->clock);
+        $this->deferred = new DeferredAlerter(fn (): Alerter => $this->alerter);
     }
 
     /**

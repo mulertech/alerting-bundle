@@ -6,7 +6,7 @@ namespace MulerTech\AlertingBundle\Source;
 
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
@@ -43,7 +43,7 @@ final readonly class HttpExceptionSubscriber implements EventSubscriberInterface
      * @param array<string, int> $statusCodes  exception class => status code, as `framework.exceptions` declares them
      */
     public function __construct(
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ThrowableClaims $claims,
         private ThrowableAlertFactory $factory,
         private array $clientErrors = [],

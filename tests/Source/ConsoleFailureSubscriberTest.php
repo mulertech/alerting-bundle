@@ -150,7 +150,7 @@ final class ConsoleFailureSubscriberTest extends TestCase
      */
     private function subscriber(AlertingKit $kit, array $statusCommands = []): ConsoleFailureSubscriber
     {
-        return new ConsoleFailureSubscriber($kit->alerter, $kit->claims, $kit->factory, $statusCommands);
+        return new ConsoleFailureSubscriber($kit->deferred, $kit->claims, $kit->factory, $statusCommands);
     }
 
     private function error(\Throwable $error, Command $command): ConsoleErrorEvent

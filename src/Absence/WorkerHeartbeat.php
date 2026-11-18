@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Source\ThrowableAlertFactory;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -34,7 +34,7 @@ final class WorkerHeartbeat implements EventSubscriberInterface
 
     public function __construct(
         private readonly Ledger $ledger,
-        private readonly Alerter $alerter,
+        private readonly DeferredAlerter $alerter,
         private readonly ThrowableAlertFactory $factory,
         private readonly ClockInterface $clock,
     ) {

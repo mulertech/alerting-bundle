@@ -187,7 +187,7 @@ final class HttpExceptionSubscriberTest extends TestCase
      */
     private function subscriber(AlertingKit $kit, array $clientErrors = [], array $statusCodes = []): HttpExceptionSubscriber
     {
-        return new HttpExceptionSubscriber($kit->alerter, $kit->claims, $kit->factory, $clientErrors, $statusCodes);
+        return new HttpExceptionSubscriber($kit->deferred, $kit->claims, $kit->factory, $clientErrors, $statusCodes);
     }
 
     private function event(\Throwable $throwable, string $uri = '/cart/checkout'): ExceptionEvent

@@ -61,7 +61,7 @@ final class FailureQueueWatchTest extends TestCase
 
     private function watch(AlertingKit $kit, ReceiverInterface $receiver): FailureQueueWatch
     {
-        return new FailureQueueWatch(new ServiceLocator(['failed' => static fn () => $receiver]), $kit->alerter, 'failed', 3);
+        return new FailureQueueWatch(new ServiceLocator(['failed' => static fn () => $receiver]), $kit->deferred, 'failed', 3);
     }
 
     private function queue(int $messages): ReceiverInterface

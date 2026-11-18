@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Source\ThrowableAlertFactory;
 
 /**
@@ -19,7 +19,7 @@ final readonly class AbsenceCheck
      */
     public function __construct(
         private iterable $watches,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ThrowableAlertFactory $factory,
     ) {
     }

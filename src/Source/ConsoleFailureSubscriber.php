@@ -6,7 +6,7 @@ namespace MulerTech\AlertingBundle\Source;
 
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\Console\Event\ConsoleErrorEvent;
@@ -40,7 +40,7 @@ final class ConsoleFailureSubscriber implements EventSubscriberInterface, ResetI
      * @param list<string> $statusCommands
      */
     public function __construct(
-        private readonly Alerter $alerter,
+        private readonly DeferredAlerter $alerter,
         private readonly ThrowableClaims $claims,
         private readonly ThrowableAlertFactory $factory,
         private readonly array $statusCommands = [],

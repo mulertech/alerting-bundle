@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use MulerTech\AlertingBundle\Source\ThrowableAlertFactory;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -24,7 +24,7 @@ final readonly class CheckOnTerminate implements EventSubscriberInterface
     public function __construct(
         private AbsenceCheck $check,
         private Ledger $ledger,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ThrowableAlertFactory $factory,
         private ClockInterface $clock,
         private int $interval,

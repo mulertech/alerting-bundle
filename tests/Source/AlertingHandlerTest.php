@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Tests\Source;
 
 use Symfony\Component\ErrorHandler\Error\OutOfMemoryError;
-use MulerTech\AlertingBundle\Alerter;
 use MulerTech\AlertingBundle\Alert\Severity;
 use MulerTech\AlertingBundle\Source\AlertingHandler;
 use MulerTech\AlertingBundle\Tests\Double\AlertingKit;
@@ -91,28 +90,6 @@ final class AlertingHandlerTest extends TestCase
     }
 
     /**
-     * An alerter whose pool cannot be reached is built at the first record: the log call of the
-     * application goes on, and the alert reaches the error log with its cause.
-     */
-    public function testAnAlerterThatCannotBeBuiltLeavesTheAlertInTheErrorLog(): void
-    {
-        $kit = new AlertingKit();
-        $handler = new AlertingHandler(static fn (): Alerter => throw new \RuntimeException('Connection refused'), $kit->claims, $kit->factory);
-        $target = (string) tempnam(sys_get_temp_dir(), 'alerting_error_log_');
-        $previous = ini_set('error_log', $target);
-
-        try {
-            $handler->handle($this->record(Level::Error, 'Import of {file} failed', ['file' => 'parkings.geojsonseq']));
-            $logged = (string) file_get_contents($target);
-        } finally {
-            ini_set('error_log', (string) $previous);
-            @unlink($target);
-        }
-
-        self::assertStringContainsString('mulertech_alerting could not be built, so this alert reaches the error log only: Import of parkings.geojsonseq failed. Cause: RuntimeException: Connection refused', $logged);
-    }
-
-    /**
      * Symfony frees 32 KiB to log an out-of-memory error: the limit is raised before the alerter,
      * its pool and its channels are built and sent through.
      */
@@ -136,7 +113,7 @@ final class AlertingHandlerTest extends TestCase
 
     private function handler(AlertingKit $kit): AlertingHandler
     {
-        return new AlertingHandler(static fn () => $kit->alerter, $kit->claims, $kit->factory);
+        return new AlertingHandler($kit->deferred, $kit->claims, $kit->factory);
     }
 
     /**

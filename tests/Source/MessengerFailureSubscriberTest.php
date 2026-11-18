@@ -89,7 +89,7 @@ final class MessengerFailureSubscriberTest extends TestCase
 
     private function handle(AlertingKit $kit, WorkerMessageFailedEvent $event): void
     {
-        $subscriber = new MessengerFailureSubscriber($kit->alerter, $kit->claims, $kit->factory);
+        $subscriber = new MessengerFailureSubscriber($kit->deferred, $kit->claims, $kit->factory);
         $subscriber->claim($event);
         $subscriber->report($event);
     }

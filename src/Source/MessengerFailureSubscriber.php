@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MulerTech\AlertingBundle\Source;
 
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Symfony\Component\Console\Exception\RunCommandFailedException;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
@@ -25,7 +25,7 @@ final readonly class MessengerFailureSubscriber implements EventSubscriberInterf
     public const string OWNER = 'messenger';
 
     public function __construct(
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ThrowableClaims $claims,
         private ThrowableAlertFactory $factory,
     ) {

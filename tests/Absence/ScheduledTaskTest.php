@@ -54,7 +54,7 @@ final class ScheduledTaskTest extends TestCase
     public function testARunThatCannotBeRecordedIsReported(): void
     {
         $kit = new AlertingKit();
-        $recorder = new ScheduledTaskRecorder(new Ledger(new FailingPool(), $kit->clock), $kit->alerter, $kit->factory);
+        $recorder = new ScheduledTaskRecorder(new Ledger(new FailingPool(), $kit->clock), $kit->deferred, $kit->factory);
 
         $recorder->onHandled($this->handled(new \ArrayObject(), scheduled: true));
 
@@ -91,12 +91,12 @@ final class ScheduledTaskTest extends TestCase
 
     private function recorder(AlertingKit $kit): ScheduledTaskRecorder
     {
-        return new ScheduledTaskRecorder($kit->ledger, $kit->alerter, $kit->factory);
+        return new ScheduledTaskRecorder($kit->ledger, $kit->deferred, $kit->factory);
     }
 
     private function watch(AlertingKit $kit): ScheduledTaskWatch
     {
-        return new ScheduledTaskWatch($kit->ledger, $kit->alerter, $kit->clock, 'app:quote-reminders', 90_000);
+        return new ScheduledTaskWatch($kit->ledger, $kit->deferred, $kit->clock, 'app:quote-reminders', 90_000);
     }
 
     private function handled(object $message, bool $scheduled): WorkerMessageHandledEvent

@@ -6,7 +6,7 @@ namespace MulerTech\AlertingBundle\Absence;
 
 use MulerTech\AlertingBundle\Alert\Alert;
 use MulerTech\AlertingBundle\Alert\Severity;
-use MulerTech\AlertingBundle\Alerter;
+use MulerTech\AlertingBundle\DeferredAlerter;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -19,7 +19,7 @@ final readonly class WorkerHeartbeatWatch implements WatchInterface
 {
     public function __construct(
         private Ledger $ledger,
-        private Alerter $alerter,
+        private DeferredAlerter $alerter,
         private ClockInterface $clock,
         private string $transport,
         private int $silence,
