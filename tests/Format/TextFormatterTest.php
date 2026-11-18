@@ -91,6 +91,23 @@ final class TextFormatterTest extends TestCase
         );
     }
 
+    public function testAContextValueOnSeveralLinesStaysUnderItsKey(): void
+    {
+        $delivery = new Delivery(
+            'shop-prod',
+            new Alert(Severity::Error, 'console', 'Console "app:import" failed', [], [
+                'message' => "Command \"app:import\" is not defined.\n\nDid you mean one of these?\n    app:import-parkings",
+                'command' => 'app:import',
+            ]),
+            new \DateTimeImmutable('2026-11-16 10:00:00', new \DateTimeZone('UTC')),
+        );
+
+        self::assertStringContainsString(
+            "Context:\n  message: Command \"app:import\" is not defined.\n\n    Did you mean one of these?\n        app:import-parkings\n  command: app:import",
+            new TextFormatter()->body($delivery),
+        );
+    }
+
     public function testASingleOccurrenceHeldBackIsSaidInTheSingular(): void
     {
         $delivery = new Delivery(

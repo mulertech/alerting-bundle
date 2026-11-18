@@ -37,8 +37,10 @@ final readonly class TextFormatter
         ];
 
         if ([] !== $alert->context) {
+            // A value on several lines keeps them under its key: left at the margin, they would read
+            // as a section of their own.
             $sections[] = "Context:\n".implode("\n", array_map(
-                static fn (string $key, string $value): string => \sprintf('  %s: %s', $key, $value),
+                static fn (string $key, string $value): string => \sprintf('  %s: %s', $key, (string) preg_replace('/\n(?=.)/', "\n    ", $value)),
                 array_keys($alert->context),
                 $alert->context,
             ));
