@@ -215,6 +215,7 @@ mulertech_alerting:
             threshold: 10
         unread:
             delay: 3600
+            timezone: Europe/Paris   # the times the reminder writes, without the offset
 ```
 
 Each absence is watched only once declared.

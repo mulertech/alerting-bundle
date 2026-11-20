@@ -27,6 +27,7 @@ final readonly class UnreadWatch implements WatchInterface
         private string $channelName,
         private ReadReceiptInterface $channel,
         private int $delay,
+        private \DateTimeZone $timezone,
     ) {
     }
 
@@ -51,15 +52,34 @@ final readonly class UnreadWatch implements WatchInterface
             return;
         }
 
+        $delay = self::duration($this->delay);
+
+        // The summary is also the subject of a mail: what is unread, where, since when, and the
+        // action that stops the reminders come first, before a subject cut at 150 characters.
         $this->alerter->alert(new Alert(
             Severity::Error,
             'unread',
-            \sprintf('Alerts sent through the channel "%s" have been waiting unread since %s.', $this->channelName, $since->format(\DATE_ATOM)),
+            \sprintf('Messages unread in "%s" since %s, over %s: read them to stop this reminder, repeated every %s.', $this->channelName, $since->setTimezone($this->timezone)->format('Y-m-d H:i'), $delay, $delay),
             [$this->channelName],
-            ['channel' => $this->channelName, 'unread_since' => $since->format(\DATE_ATOM)],
+            [
+                'channel' => $this->channelName,
+                'unread_since' => $since->format(\DATE_ATOM),
+                'next_reminder_not_before' => $this->clock->now()->modify(\sprintf('+%d seconds', $this->delay))->format(\DATE_ATOM),
+            ],
         ), after: $this->channelName);
 
         // After the reminder: a pool that refuses the record must not cost the reminder itself.
         $this->ledger->record($subject);
+    }
+
+    private static function duration(int $seconds): string
+    {
+        $parts = array_filter([
+            'h' => intdiv($seconds, 3600),
+            'min' => intdiv($seconds % 3600, 60),
+            's' => $seconds % 60,
+        ]);
+
+        return implode(' ', array_map(static fn (string $unit, int $value): string => $value.' '.$unit, array_keys($parts), $parts));
     }
 }

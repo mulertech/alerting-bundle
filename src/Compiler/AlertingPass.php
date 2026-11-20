@@ -55,7 +55,7 @@ final class AlertingPass implements CompilerPassInterface
             return;
         }
 
-        /** @var array{pool: string, channels: array<string, array{type: string, service?: string}>, apcu_refused: bool, unread: array{delay: int}|null, timeout: int} $config */
+        /** @var array{pool: string, channels: array<string, array{type: string, service?: string}>, apcu_refused: bool, unread: array{delay: int, timezone: string}|null, timeout: int} $config */
         $config = $container->getParameter(self::PREFIX.'config');
         $container->getParameterBag()->remove(self::PREFIX.'config');
 
@@ -145,7 +145,7 @@ final class AlertingPass implements CompilerPassInterface
 
     /**
      * @param array<string, array{type: string, service?: string}> $channels
-     * @param array{delay: int}|null                               $unread
+     * @param array{delay: int, timezone: string}|null             $unread
      */
     private function checkApplicationChannels(ContainerBuilder $container, array $channels, ?array $unread): void
     {
@@ -183,7 +183,7 @@ final class AlertingPass implements CompilerPassInterface
 
         foreach ($readReceipts as $name => $id) {
             $container->register(self::PREFIX.'watch.unread.'.$name, UnreadWatch::class)
-                ->setArguments([new Reference(self::PREFIX.'deferred_alerter'), new Reference(self::PREFIX.'ledger'), new Reference('clock'), $name, new Reference($id), $unread['delay']])
+                ->setArguments([new Reference(self::PREFIX.'deferred_alerter'), new Reference(self::PREFIX.'ledger'), new Reference('clock'), $name, new Reference($id), $unread['delay'], new Definition(\DateTimeZone::class, [$unread['timezone']])])
                 ->addTag(MulerTechAlertingBundle::WATCH_TAG);
         }
     }

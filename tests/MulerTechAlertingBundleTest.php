@@ -166,7 +166,7 @@ final class MulerTechAlertingBundleTest extends TestCase
                 'worker' => ['transport' => 'async', 'silence' => 300],
                 'schedule' => ['app:quote-reminders' => 90000],
                 'failure_queue' => ['transport' => 'failed', 'threshold' => 10],
-                'unread' => ['delay' => 3600],
+                'unread' => ['delay' => 3600, 'timezone' => 'Europe/Paris'],
             ],
         ]), services: [
             static fn (ContainerBuilder $c) => $c->register('app.messaging', ReadReceiptChannel::class),
@@ -250,7 +250,14 @@ final class MulerTechAlertingBundleTest extends TestCase
     {
         $this->expectRefusal('mulertech_alerting.absence.unread needs a channel that knows whether its alerts were read');
 
-        $this->kernel($this->config(['absence' => ['unread' => ['delay' => 3600]]]))->boot();
+        $this->kernel($this->config(['absence' => ['unread' => ['delay' => 3600, 'timezone' => 'Europe/Paris']]]))->boot();
+    }
+
+    public function testAnUnknownTimezoneIsRefused(): void
+    {
+        $this->expectRefusal('mulertech_alerting.absence.unread.timezone "Paris" is no timezone identifier: write one such as Europe/Paris');
+
+        $this->kernel($this->config(['absence' => ['unread' => ['delay' => 3600, 'timezone' => 'Paris']]]))->boot();
     }
 
     public function testAnInMemoryPoolIsRefusedWithThePoolsAccepted(): void

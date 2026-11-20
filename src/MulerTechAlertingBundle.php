@@ -72,7 +72,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\tagged_it
  *         worker?: array{transport: string, silence: int, probe_wait: int|null},
  *         schedule: array<string, int>,
  *         failure_queue?: array{transport: string, threshold: int},
- *         unread?: array{delay: int},
+ *         unread?: array{delay: int, timezone: string},
  *     },
  * }
  */
@@ -169,6 +169,14 @@ final class MulerTechAlertingBundle extends AbstractBundle
                         ->arrayNode('unread')
                             ->children()
                                 ->integerNode('delay')->info('Seconds an alert may wait unread in a channel that tells.')->isRequired()->min(1)->end()
+                                ->scalarNode('timezone')
+                                    ->info('Timezone the reminder writes its times in, such as Europe/Paris.')
+                                    ->isRequired()->cannotBeEmpty()
+                                    ->validate()
+                                        ->ifTrue(static fn (string $timezone): bool => !\in_array($timezone, \DateTimeZone::listIdentifiers(), true))
+                                        ->thenInvalid('mulertech_alerting.absence.unread.timezone %s is no timezone identifier: write one such as Europe/Paris, as listed by DateTimeZone::listIdentifiers().')
+                                    ->end()
+                                ->end()
                             ->end()
                         ->end()
                     ->end()
